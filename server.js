@@ -35,9 +35,6 @@ app.get('/admin', (req, res) => {
 const stripe = require('stripe')('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');
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
 
 // Initialize Firebase Admin SDK
 const serviceAccountPath = path.join(__dirname, 'serviceAccountKey.json');
