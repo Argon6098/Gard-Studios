@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gard Studios | Client Portal</title>
+  <style>
+    :root {
+      --primary: #1e3a8a;
+      --secondary: #2563eb;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --border: #cbd5e1;
+      --accent: #16a34a;
+      --warning: #dc2626;
+      --highlight: #f59e0b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); line-height: 1.6; padding-bottom: 40px; }
+
+    header { background: var(--primary); color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; position: relative; }
+    header h1 { font-size: 1.4rem; text-transform: uppercase; letter-spacing: 1px; }
+    
+    .nav-btns { display: flex; align-items: center; gap: 0.5rem; position: relative; }
+    
+    .user-account-btn {
+      background: var(--secondary);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.2);
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .user-account-btn:hover { background: #1d4ed8; }
+
+    .account-dropdown {
+      display: none;
+      position: absolute;
+      top: 110%;
+      right: 0;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      width: 220px;
+      z-index: 200;
+    }
+    .account-dropdown-header {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: #64748b;
+      word-break: break-all;
+    }
+    .account-dropdown-item {
+      padding: 0.75rem 1rem;
+      color: var(--warning);
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .account-dropdown-item:hover { background: #fef2f2; }
+
+    nav { background: #0f172a; border-bottom: 1px solid var(--border); display: flex; gap: 1rem; padding: 0 2rem; }
+    nav button { background: none; border: none; color: #94a3b8; padding: 0.85rem 1.2rem; font-size: 0.95rem; font-weight: bold; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; }
+    nav button:hover { color: #f8fafc; }
+    nav button.active { color: #38bdf8; border-bottom-color: #38bdf8; }
+
+    .container { max-width: 1100px; margin: 1.5rem auto; padding: 0 1rem; }
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .card h2 { color: var(--primary); margin-bottom: 1rem; font-size: 1.25rem; border-bottom: 2px solid var(--bg); padding-bottom: 0.5rem; }
+
+    label { display: block; font-weight: 600; margin-top: 0.75rem; font-size: 0.9rem; }
+    input[type="text"], input[type="email"], input[type="password"], select, textarea {
+      width: 100%; padding: 0.6rem; margin-top: 0.25rem; border: 1px solid var(--border); border-radius: 4px; font-size: 0.95rem;
+    }
+
+    .btn-submit { background: var(--accent); color: white; border: none; padding: 0.75rem 1.5rem; font-size: 1rem; font-weight: bold; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 1rem; }
+    .btn-submit:hover { opacity: 0.9; }
+
+    .page-view { display: none; }
+    .page-view.active { display: block; }
+
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 300; }
+    .modal { background: white; padding: 2rem; border-radius: 8px; width: 400px; text-align: center; }
+    .tab-btns { display: flex; margin-bottom: 1rem; border-bottom: 1px solid var(--border); }
+    .tab-btns button { flex: 1; padding: 0.5rem; background: none; border: none; font-weight: bold; cursor: pointer; color: #64748b; }
+    .tab-btns button.active { border-bottom: 2px solid var(--primary); color: var(--primary); }
+
+    .error-msg { color: var(--warning); font-size: 0.85rem; font-weight: 600; margin-top: 0.5rem; text-align: center; display: none; }
+    .success-msg { color: var(--accent); font-size: 0.85rem; font-weight: 600; margin-top: 0.5rem; text-align: center; display: none; }
+    .status-badge { background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.85rem; display: inline-block; margin-bottom: 10px; }
+
+    .order-card { background: #f1f5f9; border: 1px solid var(--border); border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
+
+    .terms-box { height: 120px; overflow-y: auto; background: #ffffff; border: 1px solid var(--border); padding: 10px; border-radius: 4px; font-size: 0.8rem; color: #475569; margin-top: 0.5rem; }
+    .sig-canvas-pad { border: 2px dashed #94a3b8; background: #ffffff; border-radius: 4px; cursor: crosshair; touch-action: none; display: block; margin-top: 0.5rem; width: 100%; height: 120px; }
+
+    .client-log-box {
+      background: #0f172a;
+      color: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem;
+      height: 300px;
+      overflow-y: auto;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 0.85rem;
+    }
+    .client-log-entry { margin-bottom: 4px; }
+    .client-log-entry.error { color: #f87171; }
+    .client-log-entry.success { color: #4ade80; }
+    .client-log-entry.info { color: #38bdf8; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Gard Studios</h1>
+    <div class="nav-btns">
+      <button id="authNavBtn" class="user-account-btn">🔑 Client Login / Register</button>
+
+      <div id="userAccountContainer" style="display: none; position: relative;">
+        <button id="userAccountBtn" class="user-account-btn">
+          👤 <span id="userEmailLabel">Client</span> ▾
+        </button>
+        <div id="accountDropdown" class="account-dropdown">
+          <div class="account-dropdown-header">Signed in as:<br><strong id="dropdownEmailText" style="color: #0f172a;">-</strong></div>
+          <div id="logoutDropdownItem" class="account-dropdown-item">🚪 Log Out</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <nav>
+    <button id="navCreateOrder" class="active">➕ Create Order (Home)</button>
+    <button id="navMyOrders">📁 My Orders & Archives</button>
+    <button id="navClientLogs">📜 System Logs</button>
+  </nav>
+
+  <div class="container">
+
+    <div id="pageCreateOrder" class="page-view active">
+      <div class="card">
+        <h2>Submit a New Project Order</h2>
+        <p style="margin-bottom: 1rem;">Fill out your project details below. Once approved by Gard Studios, your contract and payment link will be unlocked in your orders tracker.</p>
+
+        <label for="projectType">Select Project Category:</label>
+        <select id="projectType">
+          <option value="Custom Business Website">Custom Business Website ($675 total - $337.50 deposit)</option>
+          <option value="Mobile Application">Mobile Application ($1,200 total - $600.00 deposit)</option>
+          <option value="Casual 2D Game Build">Casual 2D Game Build ($900 total - $450.00 deposit)</option>
+        </select>
+
+        <label for="projectScope">Detail Your Project Requirements:</label>
+        <textarea id="projectScope" rows="4" placeholder="Describe the layout, features, or mechanics..."></textarea>
+
+        <div id="loggedOutAction">
+          <button class="btn-submit" id="openAuthModalBtn">Register Account or Login to Submit Order</button>
+        </div>
+
+        <div id="loggedInAction" style="display: none; margin-top: 1rem;">
+          <button class="btn-submit" id="submitScopeBtn" style="background: #1e3a8a;">📝 Submit Request for Review</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="pageMyOrders" class="page-view">
+      <div class="card">
+        <h2>Active & Past Orders</h2>
+
+        <div id="activeOrderSection">
+          <h3 style="font-size: 1.1rem; color: var(--primary); margin-bottom: 0.5rem;">Current Active Project</h3>
+          <div id="currentOrderContainer" class="order-card">
+            <p style="color: #64748b;">No active order currently in progress. Click "Create Order" to submit a project!</p>
+          </div>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--border); margin: 1.5rem 0;">
+
+        <div id="archivedOrderSection">
+          <h3 style="font-size: 1.1rem; color: #16a34a; margin-bottom: 0.5rem;">Completed Orders Archive</h3>
+          <div id="completedOrdersContainer">
+            <p style="color: #64748b;">No completed past orders found.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="pageClientLogs" class="page-view">
+      <div class="card">
+        <h2>System Logs & Notifications</h2>
+        <div id="clientLogBox" class="client-log-box">
+          <div class="client-log-entry info">[System Ready] Portal initialized. Persistent login enabled.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="modal-overlay" id="authModal">
+    <div class="modal">
+      <div class="tab-btns">
+        <button id="tabPinBtn" class="active">PIN Login</button>
+        <button id="tabEmailBtn">Email Login</button>
+        <button id="tabRegisterBtn">Sign Up</button>
+      </div>
+
+      <div id="formPin">
+        <p style="font-size: 0.85rem; margin-bottom: 1rem;">Enter your Email and 4-digit PIN:</p>
+        <input type="email" id="pinEmailInput" placeholder="Your Email">
+        <input type="password" id="pinInput" maxlength="4" style="text-align: center; font-size: 1.5rem; letter-spacing: 0.5rem; margin-top: 0.5rem;" placeholder="••••">
+        <div id="pinError" class="error-msg"></div>
+        <button class="btn-submit" id="submitPinLogin">Verify PIN & Enter</button>
+      </div>
+
+      <div id="formEmail" style="display: none;">
+        <input type="email" id="loginEmail" placeholder="Email Address">
+        <input type="password" id="loginPassword" placeholder="Password" style="margin-top: 0.5rem;">
+        <div id="loginError" class="error-msg"></div>
+        <button class="btn-submit" id="submitEmailLogin">Log In</button>
+      </div>
+
+      <!-- ENHANCED REGISTRATION WITH NAME & COMPANY -->
+      <div id="formRegister" style="display: none; text-align: left;">
+        <label for="regName">Full Name <span style="color: var(--warning);">*</span>:</label>
+        <input type="text" id="regName" placeholder="John Doe">
+
+        <label for="regCompany">Company Name <span style="color: #64748b; font-weight: normal;">(Optional)</span>:</label>
+        <input type="text" id="regCompany" placeholder="Acme LLC">
+
+        <label for="regEmail">Email Address <span style="color: var(--warning);">*</span>:</label>
+        <input type="email" id="regEmail" placeholder="john@example.com">
+
+        <label for="regPassword">Account Password <span style="color: var(--warning);">*</span>:</label>
+        <input type="password" id="regPassword" placeholder="Password">
+
+        <label for="regPin">4-Digit Quick PIN <span style="color: var(--warning);">*</span>:</label>
+        <input type="password" id="regPin" maxlength="4" style="text-align: center; font-size: 1.2rem;" placeholder="••••">
+
+        <div id="regError" class="error-msg"></div>
+        <div id="regSuccess" class="success-msg"></div>
+        <button class="btn-submit" id="submitRegister">Create Account & Save Profile</button>
+      </div>
+
+      <button id="closeAuthModalBtn" style="background: none; border: none; color: #64748b; margin-top: 1rem; cursor: pointer;">Cancel</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, setPersistence, browserLocalPersistence, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getDatabase, ref, set, get, child, onValue, push, update, off } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyC0hfMzDbYcyM3U28R3mfEdSAqkcd5uGJ4",
+      authDomain: "gard-studios.firebaseapp.com",
+      projectId: "gard-studios",
+      storageBucket: "gard-studios.firebasestorage.app",
+      messagingSenderId: "889677906284",
+      appId: "1:889677906284:web:42cb30892c5d682ba37349",
+      measurementId: "G-74MPBRZD13"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    setPersistence(auth, browserLocalPersistence).catch(err => {
+      console.error("Auth Persistence Error:", err);
+    });
+
+    const pages = {
+      createOrder: document.getElementById('pageCreateOrder'),
+      myOrders: document.getElementById('pageMyOrders'),
+      clientLogs: document.getElementById('pageClientLogs')
+    };
+
+    const navBtns = {
+      createOrder: document.getElementById('navCreateOrder'),
+      myOrders: document.getElementById('navMyOrders'),
+      clientLogs: document.getElementById('navClientLogs')
+    };
+
+    function switchPage(activeKey) {
+      Object.keys(pages).forEach(key => {
+        if (pages[key]) pages[key].classList.remove('active');
+        if (navBtns[key]) navBtns[key].classList.remove('active');
+      });
+      if (pages[activeKey]) pages[activeKey].classList.add('active');
+      if (navBtns[activeKey]) navBtns[activeKey].classList.add('active');
+    }
+
+    navBtns.createOrder.onclick = () => switchPage('createOrder');
+    navBtns.myOrders.onclick = () => switchPage('myOrders');
+    navBtns.clientLogs.onclick = () => switchPage('clientLogs');
+
+    let activeUserId = null;
+    let activeUserEmail = null;
+    let userProfile = { name: '', company: '' };
+    let activeProjectListener = null;
+
+    function logMessage(text, type = 'info') {
+      const logBox = document.getElementById('clientLogBox');
+      if (!logBox) return;
+      const time = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      div.className = `client-log-entry ${type}`;
+      div.innerText = `[${time}] ${text}`;
+      logBox.appendChild(div);
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    const userAccountBtn = document.getElementById('userAccountBtn');
+    const accountDropdown = document.getElementById('accountDropdown');
+
+    userAccountBtn.onclick = (e) => {
+      e.stopPropagation();
+      accountDropdown.style.display = accountDropdown.style.display === 'block' ? 'none' : 'block';
+    };
+
+    document.onclick = () => {
+      accountDropdown.style.display = 'none';
+    };
+
+    const authModal = document.getElementById('authModal');
+    document.getElementById('authNavBtn').onclick = () => authModal.style.display = 'flex';
+    document.getElementById('openAuthModalBtn').onclick = () => authModal.style.display = 'flex';
+    document.getElementById('closeAuthModalBtn').onclick = () => { clearMessages(); authModal.style.display = 'none'; };
+
+    function clearMessages() {
+      document.querySelectorAll('.error-msg, .success-msg').forEach(el => { el.innerText = ''; el.style.display = 'none'; });
+    }
+
+    const tabPinBtn = document.getElementById('tabPinBtn');
+    const tabEmailBtn = document.getElementById('tabEmailBtn');
+    const tabRegisterBtn = document.getElementById('tabRegisterBtn');
+    const formPin = document.getElementById('formPin');
+    const formEmail = document.getElementById('formEmail');
+    const formRegister = document.getElementById('formRegister');
+
+    tabPinBtn.onclick = () => { resetTabs(); tabPinBtn.classList.add('active'); formPin.style.display = 'block'; };
+    tabEmailBtn.onclick = () => { resetTabs(); tabEmailBtn.classList.add('active'); formEmail.style.display = 'block'; };
+    tabRegisterBtn.onclick = () => { resetTabs(); tabRegisterBtn.classList.add('active'); formRegister.style.display = 'block'; };
+
+    function resetTabs() {
+      clearMessages();
+      [tabPinBtn, tabEmailBtn, tabRegisterBtn].forEach(b => b.classList.remove('active'));
+      [formPin, formEmail, formRegister].forEach(f => f.style.display = 'none');
+    }
+
+    async function handleUserSession(uid, email) {
+      activeUserId = uid;
+      activeUserEmail = email || 'Client Account';
+
+      // Load Profile Data
+      try {
+        const snap = await get(ref(db, `users/${uid}`));
+        if (snap.exists()) {
+          const val = snap.val();
+          userProfile.name = val.fullName || '';
+          userProfile.company = val.companyName || 'N/A';
+        }
+      } catch (err) {
+        console.error("Error fetching user profile:", err);
+      }
+
+      const displayLabel = userProfile.name ? `${userProfile.name}` : activeUserEmail;
+      document.getElementById('userEmailLabel').innerText = displayLabel;
+      document.getElementById('dropdownEmailText').innerText = activeUserEmail;
+      
+      document.getElementById('authNavBtn').style.display = 'none';
+      document.getElementById('userAccountContainer').style.display = 'inline-block';
+      
+      document.getElementById('loggedOutAction').style.display = 'none';
+      document.getElementById('loggedInAction').style.display = 'block';
+      logMessage(`Authenticated session active: ${displayLabel}`, 'success');
+      
+      listenToProjectState(uid);
+      checkPaymentReturnStatus(uid);
+      checkFinalPaymentReturnStatus(uid);
+    }
+
+    async function checkPaymentReturnStatus(uid) {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('payment') === 'success') {
+        await update(ref(db, 'projects/' + uid), { stage: 2, approvalStatus: 'approved' });
+        logMessage('Initial deposit payment confirmed! Moved to Stage 2.', 'success');
+        switchPage('myOrders');
+        window.history.replaceState({}, document.title, "/");
+      }
+    }
+
+    async function checkFinalPaymentReturnStatus(uid) {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('final_payment') === 'success') {
+        await update(ref(db, 'projects/' + uid), { finalPaid: true });
+        logMessage('Final balance confirmed! Source bundle download unlocked.', 'success');
+        switchPage('myOrders');
+        window.history.replaceState({}, document.title, "/");
+      }
+    }
+
+    document.getElementById('submitScopeBtn').onclick = async () => {
+      if (!activeUserId) return;
+      const projectType = document.getElementById('projectType').value;
+      const scope = document.getElementById('projectScope').value.trim();
+
+      if (!scope) {
+        logMessage('Submission error: Please enter your project requirements.', 'error');
+        return;
+      }
+
+      let amount = 337.50;
+      if (projectType === 'Mobile Application') amount = 600.00;
+      if (projectType === 'Casual 2D Game Build') amount = 450.00;
+
+      try {
+        await update(ref(db, 'projects/' + activeUserId), {
+          clientName: userProfile.name || 'N/A',
+          clientCompany: userProfile.company || 'N/A',
+          email: activeUserEmail,
+          projectType: projectType,
+          scope: scope,
+          depositAmount: amount,
+          approvalStatus: 'pending',
+          stage: 1,
+          finalPaid: false,
+          signedAgreement: null
+        });
+        logMessage('Project order submitted! Transferred to orders tracker.', 'success');
+        document.getElementById('projectScope').value = '';
+        switchPage('myOrders');
+      } catch (err) {
+        logMessage(`Failed to submit project scope: ${err.message}`, 'error');
+      }
+    };
+
+    document.getElementById('logoutDropdownItem').onclick = async () => {
+      try {
+        if (activeUserId && activeProjectListener) {
+          off(ref(db, 'projects/' + activeUserId));
+        }
+        await signOut(auth);
+        activeUserId = null;
+        activeUserEmail = null;
+        userProfile = { name: '', company: '' };
+        document.getElementById('authNavBtn').style.display = 'inline-block';
+        document.getElementById('userAccountContainer').style.display = 'none';
+        document.getElementById('loggedOutAction').style.display = 'block';
+        document.getElementById('loggedInAction').style.display = 'none';
+        switchPage('createOrder');
+        logMessage('Logged out safely.', 'info');
+      } catch (err) {
+        logMessage(`Logout error: ${err.message}`, 'error');
+      }
+    };
+
+    // REGISTER ACCOUNT WITH FULL NAME AND COMPANY
+    document.getElementById('submitRegister').onclick = async () => {
+      clearMessages();
+      const name = document.getElementById('regName').value.trim();
+      const company = document.getElementById('regCompany').value.trim();
+      const email = document.getElementById('regEmail').value.trim();
+      const password = document.getElementById('regPassword').value;
+      const pin = document.getElementById('regPin').value.trim();
+      const errBox = document.getElementById('regError');
+      const succBox = document.getElementById('regSuccess');
+
+      if (!name || !email || !password || pin.length !== 4) {
+        errBox.innerText = 'Please enter your Full Name, Email, Password, and 4-digit PIN.';
+        errBox.style.display = 'block';
+        return;
+      }
+
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        const cleanEmailKey = email.replace(/\./g, '_');
+
+        await set(ref(db, 'users/' + user.uid), {
+          fullName: name,
+          companyName: company || 'N/A',
+          email: email,
+          pin: pin
+        });
+
+        await set(ref(db, 'pinLookup/' + cleanEmailKey), { uid: user.uid, pin: pin });
+
+        succBox.innerText = 'Account created successfully!';
+        succBox.style.display = 'block';
+
+        setTimeout(() => {
+          authModal.style.display = 'none';
+          clearMessages();
+          handleUserSession(user.uid, user.email);
+        }, 1000);
+      } catch (error) {
+        errBox.innerText = error.message.replace('Firebase: ', '');
+        errBox.style.display = 'block';
+        logMessage(`Registration failed: ${error.message}`, 'error');
+      }
+    };
+
+    document.getElementById('submitEmailLogin').onclick = async () => {
+      clearMessages();
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const errBox = document.getElementById('loginError');
+
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        authModal.style.display = 'none';
+        await handleUserSession(userCredential.user.uid, userCredential.user.email);
+      } catch (error) {
+        errBox.innerText = error.message.replace('Firebase: ', '');
+        errBox.style.display = 'block';
+        logMessage(`Login failed: ${error.message}`, 'error');
+      }
+    };
+
+    document.getElementById('submitPinLogin').onclick = async () => {
+      clearMessages();
+      const email = document.getElementById('pinEmailInput').value.trim();
+      const enteredPin = document.getElementById('pinInput').value.trim();
+      const errBox = document.getElementById('pinError');
+
+      if (!email || enteredPin.length !== 4) {
+        errBox.innerText = 'Please enter your email and 4-digit PIN.';
+        errBox.style.display = 'block';
+        return;
+      }
+
+      const cleanEmailKey = email.replace(/\./g, '_');
+      const dbRef = ref(getDatabase());
+
+      try {
+        const snapshot = await get(child(dbRef, `pinLookup/${cleanEmailKey}`));
+        if (snapshot.exists()) {
+          const userData = snapshot.val();
+          if (userData.pin === enteredPin) {
+            authModal.style.display = 'none';
+            await handleUserSession(userData.uid, email);
+          } else {
+            errBox.innerText = 'Incorrect PIN. Please try again.';
+            errBox.style.display = 'block';
+          }
+        } else {
+          errBox.innerText = 'No account found with this email.';
+          errBox.style.display = 'block';
+        }
+      } catch (error) {
+        errBox.innerText = 'PIN Login Error: ' + error.message;
+        errBox.style.display = 'block';
+      }
+    };
+
+    function initSigCanvas() {
+      const canvas = document.getElementById('sigCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let drawing = false;
+
+      canvas.onmousedown = (e) => { drawing = true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); };
+      canvas.onmousemove = (e) => { if (drawing) { ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke(); } };
+      canvas.onmouseup = () => drawing = false;
+
+      document.getElementById('clearSigBtn').onclick = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      };
+    }
+
+    function listenToProjectState(uid) {
+      const projectRef = ref(db, 'projects/' + uid);
+      
+      activeProjectListener = onValue(projectRef, (snapshot) => {
+        const container = document.getElementById('currentOrderContainer');
+        const archiveContainer = document.getElementById('completedOrdersContainer');
+
+        if (!snapshot.exists()) {
+          container.innerHTML = `<p style="color: #64748b;">No active order currently in progress. Click "Create Order" to submit a project!</p>`;
+          archiveContainer.innerHTML = `<p style="color: #64748b;">No completed past orders found.</p>`;
+          return;
+        }
+
+        const data = snapshot.val();
+
+        if (data.stage === 4 && (data.finalPaid || data.depositAmount === 0)) {
+          container.innerHTML = `<p style="color: #64748b;">No current active order. Click "Create Order" to start a new project!</p>`;
+          
+          let contractHtml = '';
+          if (data.signedAgreement) {
+            contractHtml = `
+              <div style="background: #ffffff; border: 1px solid var(--border); padding: 8px; border-radius: 4px; margin-top: 0.75rem;">
+                <p style="font-size: 0.8rem; color: #475569;"><strong>📜 Signed Contract:</strong> Verified under ${data.signedAgreement.fullName}</p>
+              </div>
+            `;
+          }
+
+          archiveContainer.innerHTML = `
+            <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 1rem;">
+              <span class="status-badge" style="background: #dcfce7; color: #15803d;">Stage 4: Completed Order</span>
+              <h4>${data.projectType || 'Custom Project'}</h4>
+              <p style="font-size: 0.9rem; color: #475569; margin-top: 0.25rem;"><strong>Scope:</strong> ${data.scope}</p>
+              ${contractHtml}
+              <button class="btn-submit" style="background: #334155; margin-top: 1rem;" onclick="alert('Downloading source bundle .ZIP...')">📦 Download Complete Source .ZIP</button>
+            </div>
+          `;
+          return;
+        }
+
+        let stageContent = '';
+
+        if (data.approvalStatus === 'pending') {
+          stageContent = `
+            <span class="status-badge" style="background: #fef3c7; color: #92400e;">Stage 1: Pending Approval</span>
+            <p>Gard Studios is reviewing your scope requirements...</p>
+          `;
+        } else if (data.approvalStatus === 'denied') {
+          stageContent = `
+            <span class="status-badge" style="background: #fef2f2; color: #dc2626;">Stage 1: Order Denied</span>
+            <p><strong>Feedback:</strong> ${data.denyReason || 'Requirements outside current capabilities.'}</p>
+          `;
+        } else if (data.approvalStatus === 'approved' && data.stage === 1) {
+          
+          if (!data.signedAgreement) {
+            stageContent = `
+              <span class="status-badge" style="background: #e0f2fe; color: #0369a1;">Stage 1: Legal Agreement Required</span>
+              <p style="font-size: 0.85rem; color: #475569;">Please review and sign the Gard Studios Master Services Agreement to proceed to deposit payment:</p>
+              
+              <div class="terms-box">
+                <strong>Gard Studios Master Services Agreement (MSA)</strong><br>
+                1. <strong>Scope of Work:</strong> Gard Studios agrees to design and develop the requested digital project in accordance with submitted requirements.<br>
+                2. <strong>Payment Schedule:</strong> A non-refundable 50% deposit is required to commence Stage 2 build creation. The remaining 50% balance is due prior to final handover.<br>
+                3. <strong>Intellectual Property:</strong> All source files and assets transfer to the client upon full payment settlement.<br>
+                4. <strong>Revisions:</strong> Live previews are hosted in Stage 3 for iteration feedback.
+              </div>
+
+              <label style="margin-top: 0.5rem;">Legal Full Name:</label>
+              <input type="text" id="sigNameInput" placeholder="Type your full legal name" value="${userProfile.name || ''}">
+
+              <label>Draw Digital Signature Below:</label>
+              <canvas id="sigCanvas" width="300" height="120" class="sig-canvas-pad"></canvas>
+              <button id="clearSigBtn" style="background: none; border: none; color: #dc2626; font-size: 0.8rem; cursor: pointer; text-decoration: underline;">Clear Canvas</button>
+
+              <button class="btn-submit" id="submitSigBtn" style="background: #16a34a; margin-top: 0.75rem;">✍️ Sign Agreement & Unlock Payment</button>
+            `;
+          } else {
+            stageContent = `
+              <span class="status-badge" style="background: #dcfce7; color: #15803d;">Stage 1: Agreement Signed - Deposit Unlocked</span>
+              <p>Deposit Amount: <strong>$${(data.depositAmount || 337.50).toFixed(2)}</strong></p>
+              <button class="btn-submit" id="payDepositBtn" style="background: #2563eb;">💳 Pay Deposit with Stripe</button>
+            `;
+          }
+
+        } else if (data.stage === 2) {
+          stageContent = `
+            <span class="status-badge" style="background: #fef3c7; color: #92400e;">Stage 2: Creation Phase</span>
+            <p>🛠️ Build in progress! You will automatically transition to Stage 3 when your preview link is ready.</p>
+          `;
+        } else if (data.stage === 3) {
+          stageContent = `
+            <span class="status-badge" style="background: #dcfce7; color: #15803d;">Stage 3: Preview & Revisions</span>
+            <p style="margin-top: 0.5rem;"><a href="${data.previewUrl || '#'}" target="_blank" style="color: #2563eb; font-weight: bold;">⏱️ Click to open live preview</a></p>
+            <div id="chatBox" style="border: 1px solid #cbd5e1; height: 140px; overflow-y: auto; padding: 8px; background: #ffffff; border-radius: 4px; margin-top: 0.5rem; font-size: 0.85rem;"></div>
+            <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+              <input type="text" id="clientChatInput" placeholder="Type revision request..." style="flex: 1;">
+              <button class="btn-submit" id="sendChatBtn" style="width: auto; margin-top: 0.25rem; background: #1e3a8a;">Send</button>
+            </div>
+          `;
+        } else if (data.stage === 4 && !data.finalPaid) {
+          stageContent = `
+            <span class="status-badge" style="background: #e0e7ff; color: #3730a3;">Stage 4: Final Handover</span>
+            <p>🎉 Project complete! Pay remaining 50% balance to unlock source package.</p>
+            <p style="margin-top: 0.25rem;">Remaining Balance: <strong>$${(data.depositAmount || 337.50).toFixed(2)}</strong></p>
+            <button class="btn-submit" id="payFinalBalanceBtn" style="background: #2563eb;">💳 Pay Final Balance with Stripe</button>
+          `;
+        }
+
+        container.innerHTML = `
+          <h4>${data.projectType || 'Custom Project'}</h4>
+          <p style="font-size: 0.9rem; color: #475569; margin-bottom: 0.75rem;"><strong>Scope:</strong> ${data.scope}</p>
+          ${stageContent}
+        `;
+
+        initSigCanvas();
+
+        const submitSigBtn = document.getElementById('submitSigBtn');
+        if (submitSigBtn) {
+          submitSigBtn.onclick = async () => {
+            const name = document.getElementById('sigNameInput').value.trim();
+            const canvas = document.getElementById('sigCanvas');
+            const sigDataUrl = canvas.toDataURL();
+
+            if (!name) {
+              logMessage('Please enter your full legal name before signing.', 'error');
+              return;
+            }
+
+            try {
+              await update(ref(db, `projects/${uid}`), {
+                signedAgreement: {
+                  fullName: name,
+                  signatureData: sigDataUrl,
+                  timestamp: Date.now()
+                }
+              });
+              logMessage('Master Services Agreement signed successfully! Payment unlocked.', 'success');
+            } catch (err) {
+              logMessage(`Failed to save signature: ${err.message}`, 'error');
+            }
+          };
+        }
+
+        const payDep = document.getElementById('payDepositBtn');
+        if (payDep) payDep.onclick = () => triggerStripeSession('/api/create-checkout-session', data.depositAmount, data.projectType);
+
+        const payFin = document.getElementById('payFinalBalanceBtn');
+        if (payFin) payFin.onclick = () => triggerStripeSession('/api/create-final-checkout-session', data.depositAmount, data.projectType);
+
+        const sendChat = document.getElementById('sendChatBtn');
+        if (sendChat) {
+          sendChat.onclick = () => {
+            const input = document.getElementById('clientChatInput');
+            if (input.value.trim() !== "") {
+              push(ref(db, `projects/${uid}/messages`), { sender: 'Client', text: input.value.trim(), timestamp: Date.now() });
+              input.value = "";
+            }
+          };
+        }
+
+        if (data.messages && document.getElementById('chatBox')) {
+          const chatBox = document.getElementById('chatBox');
+          chatBox.innerHTML = '';
+          Object.values(data.messages).forEach(msg => {
+            const div = document.createElement('div');
+            div.style.marginBottom = '4px';
+            div.innerHTML = `<strong>${msg.sender}:</strong> ${msg.text}`;
+            chatBox.appendChild(div);
+          });
+          chatBox.scrollTop = chatBox.scrollHeight;
+        }
+      });
+    }
+
+    async function triggerStripeSession(endpoint, amount, projectType) {
+      if (!activeUserId) return;
+      logMessage('Redirecting to Stripe Checkout...', 'info');
+
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: activeUserId, amount: amount || 337.50, projectType: projectType })
+        });
+        const data = await res.json();
+        if (data.url) window.location.href = data.url;
+      } catch (err) {
+        logMessage(`Stripe error: ${err.message}`, 'error');
+      }
+    }
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        handleUserSession(user.uid, user.email);
+      } else {
+        activeUserId = null;
+        activeUserEmail = null;
+        userProfile = { name: '', company: '' };
+        document.getElementById('authNavBtn').style.display = 'inline-block';
+        document.getElementById('userAccountContainer').style.display = 'none';
+        document.getElementById('loggedOutAction').style.display = 'block';
+        document.getElementById('loggedInAction').style.display = 'none';
+        switchPage('createOrder');
+      }
+    });
+  </script>
+</body>
+</html>

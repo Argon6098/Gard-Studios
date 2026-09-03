@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gard Studios | Admin Portal</title>
+  <style>
+    :root {
+      --primary: #1e3a8a;
+      --secondary: #2563eb;
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --text: #f8fafc;
+      --border: #334155;
+      --accent: #16a34a;
+      --warning: #dc2626;
+      --highlight: #f59e0b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); line-height: 1.5; padding-bottom: 40px; }
+
+    header { background: #020617; color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+    header h1 { font-size: 1.3rem; text-transform: uppercase; letter-spacing: 1px; color: var(--highlight); }
+
+    nav { background: #0f172a; border-bottom: 1px solid var(--border); display: flex; gap: 1rem; padding: 0 2rem; flex-wrap: wrap; }
+    nav button { background: none; border: none; color: #94a3b8; padding: 0.85rem 1.2rem; font-size: 0.95rem; font-weight: bold; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; }
+    nav button:hover { color: var(--text); }
+    nav button.active { color: var(--highlight); border-bottom-color: var(--highlight); }
+
+    .container { max-width: 1100px; margin: 1.5rem auto; padding: 0 1rem; }
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+    .card h2 { color: var(--highlight); font-size: 1.1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 1rem; }
+
+    label { display: block; font-weight: 600; margin-top: 0.5rem; font-size: 0.85rem; color: #cbd5e1; }
+    select, input[type="text"], input[type="number"], textarea {
+      width: 100%; padding: 0.55rem; margin-top: 0.25rem; border: 1px solid var(--border); background: #0f172a; color: white; border-radius: 4px; font-size: 0.9rem;
+    }
+
+    .drop-zone { border: 2px dashed var(--secondary); background: #0f172a; padding: 20px; text-align: center; border-radius: 6px; cursor: pointer; margin-top: 0.75rem; font-size: 0.9rem; }
+    .btn-submit { background: var(--accent); color: white; border: none; padding: 0.65rem 1.2rem; font-size: 0.9rem; font-weight: bold; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 0.75rem; }
+    .btn-submit:hover { opacity: 0.9; }
+    .btn-danger { background: var(--warning); }
+
+    .page-view { display: none; }
+    .page-view.active { display: block; }
+
+    .review-box { background: #0f172a; border: 1px solid var(--border); padding: 1rem; border-radius: 6px; margin-top: 1rem; }
+    
+    .log-box {
+      background: #020617;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem;
+      height: 300px;
+      overflow-y: auto;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 0.85rem;
+    }
+    .log-entry { margin-bottom: 4px; }
+    .log-entry.error { color: #f87171; }
+    .log-entry.success { color: #4ade80; }
+    .log-entry.info { color: #60a5fa; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Gard Studios Admin</h1>
+    <span style="font-size: 0.85rem; color: #94a3b8;">Control Engine</span>
+  </header>
+
+  <nav>
+    <button id="navHome" class="active">🏠 Home (Intake)</button>
+    <button id="navApproved">✅ Active Approved</button>
+    <button id="navCompleted">📦 Completed Archives</button>
+    <button id="navFinancials">📊 Sales & Financials</button>
+    <button id="navDenied">❌ Denied Requests</button>
+    <button id="navLogs">📜 System Logs</button>
+  </nav>
+
+  <div class="container">
+
+    <!-- PAGE 1: HOME (INTAKE & APPROVAL) -->
+    <div id="pageHome" class="page-view active">
+      <div class="card">
+        <h2>New Client Orders Intake</h2>
+        <label for="clientSelectHome">Select Pending Order:</label>
+        <select id="clientSelectHome">
+          <option value="">-- Loading Pending Intake Orders --</option>
+        </select>
+
+        <div id="reviewSectionHome" class="review-box" style="display: none;">
+          <p><strong>Client Name:</strong> <span id="reviewNameHome" style="color: #cbd5e1; font-weight: bold;">-</span></p>
+          <p><strong>Company:</strong> <span id="reviewCompanyHome" style="color: #cbd5e1;">-</span></p>
+          <p><strong>Category:</strong> <span id="reviewCategoryHome" style="color: #60a5fa;">-</span></p>
+          <p><strong>Status:</strong> <span id="reviewStatusHome" style="color: var(--highlight);">-</span></p>
+          
+          <label>Project Scope Requirements:</label>
+          <p id="reviewScopeHome" style="background: #1e293b; padding: 10px; border-radius: 4px; font-size: 0.9rem; color: #cbd5e1; margin-top: 4px;">-</p>
+
+          <label for="customPriceInputHome" style="color: var(--highlight); margin-top: 1rem;">Set Approved Deposit Amount ($):</label>
+          <input type="number" id="customPriceInputHome" step="0.01" min="0" placeholder="337.50" style="font-size: 1.1rem; font-weight: bold; color: #4ade80;">
+
+          <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+            <button class="btn-submit" id="approveBtnHome" style="background: #16a34a; flex: 1; margin-top: 0;">✅ Approve Project & Set Price</button>
+            <button class="btn-submit btn-danger" id="toggleDenyBoxHome" style="flex: 1; margin-top: 0;">❌ Deny Request</button>
+          </div>
+
+          <div id="denyReasonBoxHome" style="display: none; margin-top: 0.75rem; border-top: 1px solid var(--border); padding-top: 0.5rem;">
+            <label for="denyReasonInputHome" style="color: #f87171;">Reason for Rejection:</label>
+            <textarea id="denyReasonInputHome" rows="2" placeholder="Custom rejection message..."></textarea>
+            <button class="btn-submit btn-danger" id="submitDenyBtnHome" style="margin-top: 0.5rem;">Confirm Rejection</button>
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid var(--border); margin: 1.5rem 0 1rem 0;">
+          <button class="btn-submit btn-danger" id="deleteProjectBtnHome">🗑️ Delete Client Record & Account Data</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 2: ACTIVE APPROVED PROJECTS (STAGES 1-3) -->
+    <div id="pageApproved" class="page-view">
+      <div class="card">
+        <h2>Active Approved Projects Tracker</h2>
+        <label for="clientSelectApproved">Filter Active Projects:</label>
+        <select id="clientSelectApproved">
+          <option value="">-- Choose Approved Client --</option>
+        </select>
+
+        <div id="approvedDetails" class="review-box" style="display: none;">
+          <p><strong>Client Name:</strong> <span id="appName" style="color: #cbd5e1; font-weight: bold;">-</span></p>
+          <p><strong>Company:</strong> <span id="appCompany" style="color: #cbd5e1;">-</span></p>
+          <p><strong>Category:</strong> <span id="appCategory" style="color: #60a5fa;">-</span></p>
+          <p><strong>Approved Deposit:</strong> <span id="appPrice" style="color: #4ade80; font-weight: bold;">-</span></p>
+          <p><strong>Current Stage:</strong> <span id="appStageLabel" style="color: #f59e0b; font-weight: bold;">-</span></p>
+          <p><strong>Scope:</strong></p>
+          <p id="appScope" style="background: #1e293b; padding: 8px; border-radius: 4px; font-size: 0.85rem; color: #cbd5e1; margin-top: 4px;">-</p>
+
+          <div id="legalSignatureBox" style="background: #0f172a; border: 1px solid var(--border); padding: 10px; border-radius: 4px; margin-top: 1rem;">
+            <p><strong>📜 Legal Agreement Status:</strong> <span id="sigStatusLabel" style="color: #f87171;">Pending Signature</span></p>
+            <div id="sigImageContainer" style="display: none; margin-top: 0.5rem;">
+              <p style="font-size: 0.8rem; color: #94a3b8;">Signed by: <strong id="sigNameLabel" style="color: #f8fafc;">-</strong></p>
+              <img id="sigImg" src="" style="background: white; border-radius: 4px; padding: 4px; margin-top: 4px; max-height: 80px;">
+            </div>
+          </div>
+
+          <h3 style="color: var(--highlight); margin-top: 1rem; font-size: 1rem;">Deploy Stage 3 Live Preview</h3>
+          <div class="drop-zone" id="approvedDropZone" onclick="document.getElementById('approvedFileInput').click()">
+            📁 Click or Drag & Drop Build .ZIP Here
+            <input type="file" id="approvedFileInput" accept=".zip" hidden>
+          </div>
+
+          <h3 style="color: var(--highlight); margin-top: 1rem; font-size: 1rem;">Stage 3 Revision Chat</h3>
+          <div id="approvedChatBox" style="border: 1px solid var(--border); height: 180px; overflow-y: auto; padding: 8px; background: #0f172a; border-radius: 4px; margin-top: 0.5rem; font-size: 0.85rem;"></div>
+          <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+            <input type="text" id="approvedChatInput" placeholder="Type admin response..." style="flex: 1;">
+            <button class="btn-submit" style="background: var(--secondary); width: auto; margin-top: 0.25rem;" id="sendApprovedChatBtn">Send Reply</button>
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid var(--border); margin: 1.5rem 0 1rem 0;">
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn-submit" id="advanceStage4Btn" style="background: #16a34a; font-size: 1rem; flex: 2; margin-top: 0;">🎉 Complete Project & Move to Archives</button>
+            <button class="btn-submit btn-danger" id="deleteProjectBtnApproved" style="flex: 1; margin-top: 0;">🗑️ Delete Record</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 3: COMPLETED ARCHIVES (STAGE 4) -->
+    <div id="pageCompleted" class="page-view">
+      <div class="card">
+        <h2>Completed Orders Archive</h2>
+        <label for="clientSelectCompleted">Filter Archived Orders:</label>
+        <select id="clientSelectCompleted">
+          <option value="">-- Choose Completed Client --</option>
+        </select>
+
+        <div id="completedDetails" class="review-box" style="display: none;">
+          <span style="background: #dcfce7; color: #15803d; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.85rem; display: inline-block; margin-bottom: 10px;">Stage 4: Completed & Archived</span>
+          <p><strong>Client Name:</strong> <span id="compName" style="color: #cbd5e1; font-weight: bold;">-</span></p>
+          <p><strong>Company:</strong> <span id="compCompany" style="color: #cbd5e1;">-</span></p>
+          <p><strong>Category:</strong> <span id="compCategory" style="color: #60a5fa;">-</span></p>
+          <p><strong>Final Payment Status:</strong> <span id="compPaidStatus" style="color: #4ade80; font-weight: bold;">-</span></p>
+          <p><strong>Scope:</strong></p>
+          <p id="compScope" style="background: #1e293b; padding: 8px; border-radius: 4px; font-size: 0.85rem; color: #cbd5e1; margin-top: 4px;">-</p>
+          
+          <div style="background: #020617; border: 1px solid var(--border); padding: 10px; border-radius: 4px; margin-top: 1rem;">
+            <p style="color: var(--highlight);"><strong>📜 Signed Legal Contract Details:</strong></p>
+            <p style="font-size: 0.85rem; margin-top: 4px;">Signee Name: <span id="compSigName" style="color: #cbd5e1;">-</span></p>
+            <div id="compSigImgContainer" style="display: none; margin-top: 0.5rem;">
+              <img id="compSigImg" src="" style="background: white; border-radius: 4px; padding: 4px; max-height: 80px;">
+            </div>
+          </div>
+
+          <button class="btn-submit btn-danger" id="deleteArchivedBtn" style="margin-top: 1rem;">🗑️ Delete Client Record & Account Data</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 4: SALES & FINANCIALS -->
+    <div id="pageFinancials" class="page-view">
+      <div class="card">
+        <h2>Sales & Financial Reports</h2>
+        <p style="margin-bottom: 1rem; color: #cbd5e1; font-size: 0.9rem;">Export all completed sales and client project data directly into a structured Excel spreadsheet for tax filing and revenue reporting:</p>
+        
+        <button class="btn-submit" id="downloadExcelBtn" style="background: #16a34a; font-size: 1rem;">📊 Download Gard Studios Sales Ledger (.XLSX)</button>
+      </div>
+    </div>
+
+    <!-- PAGE 5: DENIED PROJECTS -->
+    <div id="pageDenied" class="page-view">
+      <div class="card">
+        <h2>Denied Requests Log</h2>
+        <label for="clientSelectDenied">Filter Denied Projects:</label>
+        <select id="clientSelectDenied">
+          <option value="">-- Choose Denied Client --</option>
+        </select>
+
+        <div id="deniedDetails" class="review-box" style="display: none;">
+          <p><strong>Client Name:</strong> <span id="denName" style="color: #cbd5e1; font-weight: bold;">-</span></p>
+          <p><strong>Category:</strong> <span id="denCategory" style="color: #60a5fa;">-</span></p>
+          <p><strong>Rejection Feedback:</strong></p>
+          <p id="denReasonText" style="background: #2a1215; border: 1px solid #7f1d1d; padding: 8px; border-radius: 4px; color: #f87171; font-size: 0.85rem; margin-top: 4px;">-</p>
+
+          <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+            <button class="btn-submit" id="reapproveBtn" style="background: #16a34a; flex: 2; margin-top: 0;">🔄 Change Status to Approved</button>
+            <button class="btn-submit btn-danger" id="deleteProjectBtnDenied" style="flex: 1; margin-top: 0;">🗑️ Delete Record</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 6: SYSTEM LOGS -->
+    <div id="pageLogs" class="page-view">
+      <div class="card">
+        <h2>System Logs & Diagnostics</h2>
+        <div id="systemLogBox" class="log-box">
+          <div class="log-entry info">[System Ready] Admin Dashboard navigation active.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue, push, off, update, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyC0hfMzDbYcyM3U28R3mfEdSAqkcd5uGJ4",
+      authDomain: "gard-studios.firebaseapp.com",
+      projectId: "gard-studios",
+      storageBucket: "gard-studios.firebasestorage.app",
+      messagingSenderId: "889677906284",
+      appId: "1:889677906284:web:42cb30892c5d682ba37349",
+      measurementId: "G-74MPBRZD13"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const pages = {
+      home: document.getElementById('pageHome'),
+      approved: document.getElementById('pageApproved'),
+      completed: document.getElementById('pageCompleted'),
+      financials: document.getElementById('pageFinancials'),
+      denied: document.getElementById('pageDenied'),
+      logs: document.getElementById('pageLogs')
+    };
+
+    const navBtns = {
+      home: document.getElementById('navHome'),
+      approved: document.getElementById('navApproved'),
+      completed: document.getElementById('navCompleted'),
+      financials: document.getElementById('navFinancials'),
+      denied: document.getElementById('navDenied'),
+      logs: document.getElementById('navLogs')
+    };
+
+    function switchPage(activeKey) {
+      Object.keys(pages).forEach(key => {
+        pages[key].classList.remove('active');
+        navBtns[key].classList.remove('active');
+      });
+      pages[activeKey].classList.add('active');
+      navBtns[activeKey].classList.add('active');
+    }
+
+    navBtns.home.onclick = () => switchPage('home');
+    navBtns.approved.onclick = () => switchPage('approved');
+    navBtns.completed.onclick = () => switchPage('completed');
+    navBtns.financials.onclick = () => switchPage('financials');
+    navBtns.denied.onclick = () => switchPage('denied');
+    navBtns.logs.onclick = () => switchPage('logs');
+
+    function logMessage(text, type = 'info') {
+      const logBox = document.getElementById('systemLogBox');
+      const time = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      div.className = `log-entry ${type}`;
+      div.innerText = `[${time}] ${text}`;
+      logBox.appendChild(div);
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    let activeHomeUid = null;
+    let activeApprovedUid = null;
+    let activeApprovedChatListener = null;
+    let activeCompletedUid = null;
+    let activeDeniedUid = null;
+
+    async function getUserDetails(uid, proj) {
+      if (proj.clientName && proj.clientName !== 'N/A') {
+        return { name: proj.clientName, company: proj.clientCompany || 'N/A' };
+      }
+      try {
+        const snap = await get(ref(db, `users/${uid}`));
+        if (snap.exists()) {
+          const val = snap.val();
+          return { name: val.fullName || proj.email || uid, company: val.companyName || 'N/A' };
+        }
+      } catch (err) {
+        console.error("Error loading user profile:", err);
+      }
+      return { name: proj.email || uid, company: 'N/A' };
+    }
+
+    // CENTRAL DELETE RECORD HELPER
+    async function deleteClientRecord(uid, pageContainerId, selectElementId) {
+      if (!uid) return;
+      if (!confirm("Are you sure you want to permanently delete this client record?")) return;
+
+      try {
+        const res = await fetch(`/api/admin/delete-project/${uid}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          logMessage(`Successfully deleted record for UID: ${uid}`, 'success');
+          document.getElementById(pageContainerId).style.display = 'none';
+          document.getElementById(selectElementId).value = '';
+        } else {
+          logMessage(`Failed to delete record: ${data.error}`, 'error');
+        }
+      } catch (err) {
+        logMessage(`Delete network error: ${err.message}`, 'error');
+      }
+    }
+
+    // REALTIME PROJECTS LISTENER
+    const projectsRef = ref(db, 'projects');
+
+    onValue(projectsRef, async (snapshot) => {
+      const selectHome = document.getElementById('clientSelectHome');
+      const selectApproved = document.getElementById('clientSelectApproved');
+      const selectCompleted = document.getElementById('clientSelectCompleted');
+      const selectDenied = document.getElementById('clientSelectDenied');
+
+      selectHome.innerHTML = '<option value="">-- Choose Pending Order --</option>';
+      selectApproved.innerHTML = '<option value="">-- Choose Approved Client --</option>';
+      selectCompleted.innerHTML = '<option value="">-- Choose Completed Client --</option>';
+      selectDenied.innerHTML = '<option value="">-- Choose Denied Client --</option>';
+
+      if (snapshot.exists()) {
+        const projects = snapshot.val();
+        for (const uid of Object.keys(projects)) {
+          const proj = projects[uid];
+          const userMeta = await getUserDetails(uid, proj);
+          
+          const companyStr = (userMeta.company && userMeta.company !== 'N/A') ? ` (${userMeta.company})` : '';
+          const labelText = `${userMeta.name}${companyStr}`;
+
+          if (proj.approvalStatus === 'pending' || proj.approvalStatus === 'none' || !proj.approvalStatus) {
+            const optHome = document.createElement('option');
+            optHome.value = uid;
+            optHome.textContent = `${labelText} - Pending Intake`;
+            selectHome.appendChild(optHome);
+          }
+
+          if (proj.approvalStatus === 'approved' && proj.stage !== 4) {
+            const optApp = document.createElement('option');
+            optApp.value = uid;
+            optApp.textContent = `${labelText} - Stage ${proj.stage || 1}`;
+            selectApproved.appendChild(optApp);
+          }
+
+          if (proj.stage === 4) {
+            const optComp = document.createElement('option');
+            optComp.value = uid;
+            optComp.textContent = labelText;
+            selectCompleted.appendChild(optComp);
+          }
+
+          if (proj.approvalStatus === 'denied') {
+            const optDen = document.createElement('option');
+            optDen.value = uid;
+            optDen.textContent = labelText;
+            selectDenied.appendChild(optDen);
+          }
+        }
+      }
+    });
+
+    // PAGE 1: HOME INTAKE
+    document.getElementById('clientSelectHome').onchange = async (e) => {
+      activeHomeUid = e.target.value;
+      const reviewSec = document.getElementById('reviewSectionHome');
+
+      if (!activeHomeUid) {
+        reviewSec.style.display = 'none';
+        return;
+      }
+
+      const snap = await get(ref(db, `projects/${activeHomeUid}`));
+      if (snap.exists()) {
+        const proj = snap.val();
+        const userMeta = await getUserDetails(activeHomeUid, proj);
+
+        reviewSec.style.display = 'block';
+        document.getElementById('reviewNameHome').innerText = userMeta.name;
+        document.getElementById('reviewCompanyHome').innerText = userMeta.company;
+        document.getElementById('reviewCategoryHome').innerText = proj.projectType || 'Not specified';
+        document.getElementById('reviewStatusHome').innerText = proj.approvalStatus || 'None';
+        document.getElementById('reviewScopeHome').innerText = proj.scope || 'No scope requirements provided.';
+        document.getElementById('customPriceInputHome').value = proj.depositAmount !== undefined ? proj.depositAmount : 337.50;
+      }
+    };
+
+    document.getElementById('approveBtnHome').onclick = async () => {
+      if (!activeHomeUid) return;
+      const rawPrice = parseFloat(document.getElementById('customPriceInputHome').value);
+      const depositPrice = isNaN(rawPrice) ? 0 : Math.max(0, rawPrice);
+
+      const updateData = { approvalStatus: 'approved', depositAmount: depositPrice, stage: 1 };
+      if (depositPrice === 0) updateData.stage = 2;
+
+      await update(ref(db, `projects/${activeHomeUid}`), updateData);
+      logMessage(`Approved client ${activeHomeUid} at $${depositPrice.toFixed(2)}. Transferred to Active Approved tracker.`, 'success');
+      
+      document.getElementById('reviewSectionHome').style.display = 'none';
+      document.getElementById('clientSelectHome').value = '';
+      activeHomeUid = null;
+    };
+
+    document.getElementById('toggleDenyBoxHome').onclick = () => {
+      const box = document.getElementById('denyReasonBoxHome');
+      box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    };
+
+    document.getElementById('submitDenyBtnHome').onclick = async () => {
+      if (!activeHomeUid) return;
+      const reason = document.getElementById('denyReasonInputHome').value.trim() || 'Requirements outside current capabilities.';
+      
+      await update(ref(db, `projects/${activeHomeUid}`), {
+        approvalStatus: 'denied',
+        denyReason: reason
+      });
+
+      logMessage(`Denied request for ${activeHomeUid}. Reasoning saved.`, 'error');
+      document.getElementById('reviewSectionHome').style.display = 'none';
+      document.getElementById('denyReasonBoxHome').style.display = 'none';
+      document.getElementById('clientSelectHome').value = '';
+      activeHomeUid = null;
+    };
+
+    document.getElementById('deleteProjectBtnHome').onclick = () => {
+      deleteClientRecord(activeHomeUid, 'reviewSectionHome', 'clientSelectHome');
+    };
+
+    // PAGE 2: ACTIVE APPROVED
+    document.getElementById('clientSelectApproved').onchange = async (e) => {
+      activeApprovedUid = e.target.value;
+      const appDetails = document.getElementById('approvedDetails');
+
+      if (activeApprovedChatListener) {
+        off(ref(db, `projects/${activeApprovedUid}/messages`));
+      }
+
+      if (!activeApprovedUid) {
+        appDetails.style.display = 'none';
+        return;
+      }
+
+      const snap = await get(ref(db, `projects/${activeApprovedUid}`));
+      if (snap.exists()) {
+        const proj = snap.val();
+        const userMeta = await getUserDetails(activeApprovedUid, proj);
+
+        appDetails.style.display = 'block';
+        document.getElementById('appName').innerText = userMeta.name;
+        document.getElementById('appCompany').innerText = userMeta.company;
+        document.getElementById('appCategory').innerText = proj.projectType || 'Standard';
+        document.getElementById('appPrice').innerText = `$${(proj.depositAmount || 0).toFixed(2)}`;
+        document.getElementById('appScope').innerText = proj.scope || 'N/A';
+        document.getElementById('appStageLabel').innerText = `Stage ${proj.stage || 1}`;
+
+        const sigStatus = document.getElementById('sigStatusLabel');
+        const sigContainer = document.getElementById('sigImageContainer');
+        const sigName = document.getElementById('sigNameLabel');
+        const sigImg = document.getElementById('sigImg');
+
+        if (proj.signedAgreement) {
+          sigStatus.innerText = '✅ Signed & Verified';
+          sigStatus.style.color = '#4ade80';
+          sigName.innerText = proj.signedAgreement.fullName;
+          sigImg.src = proj.signedAgreement.signatureData;
+          sigContainer.style.display = 'block';
+        } else {
+          sigStatus.innerText = '⏳ Pending Signature';
+          sigStatus.style.color = '#f87171';
+          sigContainer.style.display = 'none';
+        }
+      }
+
+      const chatRef = ref(db, `projects/${activeApprovedUid}/messages`);
+      activeApprovedChatListener = onValue(chatRef, (snapshot) => {
+        const chatBox = document.getElementById('approvedChatBox');
+        chatBox.innerHTML = '';
+        if (snapshot.exists()) {
+          Object.values(snapshot.val()).forEach(msg => {
+            const div = document.createElement('div');
+            div.style.marginBottom = '4px';
+            div.innerHTML = `<strong>${msg.sender}:</strong> ${msg.text}`;
+            chatBox.appendChild(div);
+          });
+          chatBox.scrollTop = chatBox.scrollHeight;
+        }
+      });
+    };
+
+    document.getElementById('sendApprovedChatBtn').onclick = () => {
+      const input = document.getElementById('approvedChatInput');
+      if (input.value.trim() !== "" && activeApprovedUid) {
+        push(ref(db, `projects/${activeApprovedUid}/messages`), {
+          sender: 'Gard Studios Admin',
+          text: input.value.trim(),
+          timestamp: Date.now()
+        });
+        input.value = "";
+      }
+    };
+
+    document.getElementById('approvedFileInput').onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file || !activeApprovedUid) return;
+
+      const formData = new FormData();
+      formData.append('projectZip', file);
+
+      fetch(`/api/admin/deploy-preview/${activeApprovedUid}`, {
+        method: 'POST',
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          logMessage(`Preview deployed for approved client: ${data.previewUrl}`, 'success');
+        } else {
+          logMessage(`Preview upload error: ${data.error}`, 'error');
+        }
+      });
+    };
+
+    document.getElementById('advanceStage4Btn').onclick = async () => {
+      if (!activeApprovedUid) return;
+
+      try {
+        await update(ref(db, `projects/${activeApprovedUid}`), {
+          stage: 4,
+          completedAt: Date.now()
+        });
+
+        await push(ref(db, `projects/${activeApprovedUid}/messages`), {
+          sender: 'Gard Studios Admin',
+          text: '🎉 Congratulations! Your project is complete. Welcome to Stage 4 Final Handover!',
+          timestamp: Date.now()
+        });
+
+        logMessage(`Advanced Client UID ${activeApprovedUid} to Stage 4. Transferred to Archives.`, 'success');
+        document.getElementById('approvedDetails').style.display = 'none';
+        document.getElementById('clientSelectApproved').value = '';
+        activeApprovedUid = null;
+      } catch (err) {
+        logMessage(`Failed to update stage: ${err.message}`, 'error');
+      }
+    };
+
+    document.getElementById('deleteProjectBtnApproved').onclick = () => {
+      deleteClientRecord(activeApprovedUid, 'approvedDetails', 'clientSelectApproved');
+    };
+
+    // PAGE 3: COMPLETED ARCHIVES
+    document.getElementById('clientSelectCompleted').onchange = async (e) => {
+      activeCompletedUid = e.target.value;
+      const compDetails = document.getElementById('completedDetails');
+
+      if (!activeCompletedUid) {
+        compDetails.style.display = 'none';
+        return;
+      }
+
+      const snap = await get(ref(db, `projects/${activeCompletedUid}`));
+      if (snap.exists()) {
+        const proj = snap.val();
+        const userMeta = await getUserDetails(activeCompletedUid, proj);
+
+        compDetails.style.display = 'block';
+        document.getElementById('compName').innerText = userMeta.name;
+        document.getElementById('compCompany').innerText = userMeta.company;
+        document.getElementById('compCategory').innerText = proj.projectType || 'Standard';
+        document.getElementById('compPaidStatus').innerText = (proj.finalPaid || proj.depositAmount === 0) ? '✅ Paid & Settlement Complete' : '⏳ Pending Final Balance';
+        document.getElementById('compScope').innerText = proj.scope || 'N/A';
+
+        const compSigContainer = document.getElementById('compSigImgContainer');
+        const compSigImg = document.getElementById('compSigImg');
+        const compSigName = document.getElementById('compSigName');
+
+        if (proj.signedAgreement) {
+          compSigName.innerText = proj.signedAgreement.fullName;
+          compSigImg.src = proj.signedAgreement.signatureData;
+          compSigContainer.style.display = 'block';
+        } else {
+          compSigName.innerText = 'No digital signature recorded';
+          compSigContainer.style.display = 'none';
+        }
+      }
+    };
+
+    document.getElementById('deleteArchivedBtn').onclick = () => {
+      deleteClientRecord(activeCompletedUid, 'completedDetails', 'clientSelectCompleted');
+    };
+
+    document.getElementById('downloadExcelBtn').onclick = () => {
+      logMessage('Generating and downloading Excel sales ledger...', 'info');
+      window.location.href = '/api/admin/export-sales';
+    };
+
+    // PAGE 4: DENIED
+    document.getElementById('clientSelectDenied').onchange = async (e) => {
+      activeDeniedUid = e.target.value;
+      const denDetails = document.getElementById('deniedDetails');
+
+      if (!activeDeniedUid) {
+        denDetails.style.display = 'none';
+        return;
+      }
+
+      const snap = await get(ref(db, `projects/${activeDeniedUid}`));
+      if (snap.exists()) {
+        const proj = snap.val();
+        const userMeta = await getUserDetails(activeDeniedUid, proj);
+
+        denDetails.style.display = 'block';
+        document.getElementById('denName').innerText = userMeta.name;
+        document.getElementById('denCategory').innerText = proj.projectType || 'Standard';
+        document.getElementById('denReasonText').innerText = proj.denyReason || 'No explicit reason specified.';
+      }
+    };
+
+    document.getElementById('reapproveBtn').onclick = async () => {
+      if (!activeDeniedUid) return;
+      await update(ref(db, `projects/${activeDeniedUid}`), {
+        approvalStatus: 'approved',
+        stage: 1
+      });
+      logMessage(`Re-approved project for UID: ${activeDeniedUid}`, 'success');
+      document.getElementById('deniedDetails').style.display = 'none';
+      document.getElementById('clientSelectDenied').value = '';
+      activeDeniedUid = null;
+    };
+
+    document.getElementById('deleteProjectBtnDenied').onclick = () => {
+      deleteClientRecord(activeDeniedUid, 'deniedDetails', 'clientSelectDenied');
+    };
+  </script>
+</body>
+</html>
