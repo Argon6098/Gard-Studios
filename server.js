@@ -1,4 +1,5 @@
 const express = require('express');
+const session = require('express-session');
 const fileUpload = require('express-fileupload');
 const path = require('path');
 const fs = require('fs');
@@ -16,269 +17,217 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(fileUpload());
 
-// 1. Serve static assets
-app.use(express.static(path.join(__dirname, 'public')));
+// Session Security for Admin Access
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'gard-studios-session-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { maxAge: 3600000 } // 1 Hour
+}));
 
-// 2. Client Portal Route
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// 3. Admin Dashboard Route
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
-});
-
-// Firebase / Stripe initialization and API routes follow...
-
-// Initialize Stripe with Secret Live Key
-const stripe = require('stripe')('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');
-
-const PORT = process.env.PORT || 3000;
-
-// Initialize Firebase Admin SDK
-const serviceAccountPath = path.join(__dirname, 'serviceAccountKey.json');
-
-if (fs.existsSync(serviceAccountPath)) {
-  const serviceAccount = require(serviceAccountPath);
+// 1. Firebase Admin Initializer
+// Ensure serviceAccountKey.json exists locally OR pass raw credentials via process.env
+if (fs.existsSync(path.join(__dirname, 'serviceAccountKey.json'))) {
+  const serviceAccount = require('./serviceAccountKey.json');
   admin.initializeApp({
     credential: cert(serviceAccount),
     databaseURL: "https://gard-studios-default-rtdb.firebaseio.com"
   });
-  console.log('Firebase Admin SDK initialized successfully.');
+} else if (process.env.FIREBASE_CONFIG_JSON) {
+  const serviceAccount = JSON.parse(process.env.FIREBASE_CONFIG_JSON);
+  admin.initializeApp({
+    credential: cert(serviceAccount),
+    databaseURL: "https://gard-studios-default-rtdb.firebaseio.com"
+  });
 } else {
-  console.warn('WARNING: serviceAccountKey.json not found in root folder!');
+  admin.initializeApp({
+    databaseURL: "https://gard-studios-default-rtdb.firebaseio.com"
+  });
 }
 
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(fileUpload());
+const db = getDatabase();
 
-// Serve static frontend files from /public folder
+// 2. Stripe Key Configuration
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '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';
+const stripe = require('stripe')(STRIPE_SECRET_KEY);
+
+// 3. Static Assets & Web Routes
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Explicit Static Routes
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.get('/admin.html', (req, res) => {
+app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-// 1. STRIPE ROUTE: Create Deposit Checkout Session (Stage 1 -> Stage 2)
+// 4. Admin Auth API Endpoints
+app.post('/api/admin/login', (req, res) => {
+  const { username, password } = req.body;
+  const ADMIN_USER = process.env.ADMIN_USER || 'admin';
+  const ADMIN_PASS = process.env.ADMIN_PASS || 'GardStudios2026!';
+
+  if (username === ADMIN_USER && password === ADMIN_PASS) {
+    req.session.isAdmin = true;
+    return res.json({ success: true });
+  } else {
+    return res.status(401).json({ success: false, error: 'Invalid admin username or password.' });
+  }
+});
+
+app.post('/api/admin/logout', (req, res) => {
+  req.session.destroy();
+  res.json({ success: true });
+});
+
+// Admin Protection Middleware
+function requireAdmin(req, res, next) {
+  if (req.session && req.session.isAdmin) {
+    return next();
+  }
+  res.status(403).json({ error: 'Unauthorized administrative action.' });
+}
+
+// 5. Stripe Checkout Session APIs
 app.post('/api/create-checkout-session', async (req, res) => {
-  const { userId, amount, projectType } = req.body;
-
-  if (!userId) {
-    return res.status(400).json({ error: 'User ID is required.' });
-  }
-
   try {
+    const { userId, amount, projectType } = req.body;
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: `Gard Studios - Initial Deposit (${projectType || 'Custom Project'})`,
-              description: 'Initial deposit to begin Stage 2 creation phase.',
-            },
-            unit_amount: Math.round((amount || 337.50) * 100),
-          },
-          quantity: 1,
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: { name: `Deposit: ${projectType || 'Gard Studios Project'}` },
+          unit_amount: Math.round((amount || 337.50) * 100),
         },
-      ],
+        quantity: 1,
+      }],
       mode: 'payment',
-      success_url: `http://localhost:3000/?payment=success&uid=${userId}`,
-      cancel_url: `http://localhost:3000/?payment=cancel`,
+      success_url: `${req.protocol}://${req.get('host')}/?payment=success`,
+      cancel_url: `${req.protocol}://${req.get('host')}/?payment=cancel`,
+      client_reference_id: userId
     });
-
-    res.json({ id: session.id, url: session.url });
-  } catch (error) {
-    console.error('Stripe Deposit Error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// 2. STRIPE ROUTE: Create Final Balance Checkout Session (Stage 4 Handover)
-app.post('/api/create-final-checkout-session', async (req, res) => {
-  const { userId, amount, projectType } = req.body;
-
-  if (!userId) {
-    return res.status(400).json({ error: 'User ID is required.' });
-  }
-
-  try {
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: `Gard Studios - Final Balance (${projectType || 'Custom Project'})`,
-              description: 'Final 50% payment to unlock complete source bundle download.',
-            },
-            unit_amount: Math.round((amount || 337.50) * 100),
-          },
-          quantity: 1,
-        },
-      ],
-      mode: 'payment',
-      success_url: `http://localhost:3000/?final_payment=success&uid=${userId}`,
-      cancel_url: `http://localhost:3000/?payment=cancel`,
-    });
-
-    res.json({ id: session.id, url: session.url });
-  } catch (error) {
-    console.error('Stripe Final Payment Error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// 3. ADMIN ROUTE: Deploy Preview (Stage 3)
-app.post('/api/admin/deploy-preview/:projectId', async (req, res) => {
-  const { projectId } = req.params;
-
-  if (!req.files || !req.files.projectZip) {
-    return res.status(400).json({ error: 'No project files uploaded.' });
-  }
-
-  const zipFile = req.files.projectZip;
-  const previewToken = crypto.randomBytes(8).toString('hex');
-  const expiresAt = Date.now() + (2 * 60 * 60 * 1000); // 2 Hours
-  const extractPath = path.join(__dirname, 'public', 'previews', previewToken);
-
-  fs.mkdirSync(extractPath, { recursive: true });
-  const tempZipPath = path.join(extractPath, 'temp.zip');
-
-  zipFile.mv(tempZipPath, async (err) => {
-    if (err) return res.status(500).json({ error: 'Failed to save upload.' });
-
-    try {
-      const zip = new admZip(tempZipPath);
-      zip.extractAllTo(extractPath, true);
-      fs.unlinkSync(tempZipPath);
-
-      let relativePath = `/previews/${previewToken}/index.html`;
-
-      if (!fs.existsSync(path.join(extractPath, 'index.html'))) {
-        const files = fs.readdirSync(extractPath);
-        const nestedDir = files.find(file => fs.statSync(path.join(extractPath, file)).isDirectory());
-
-        if (nestedDir && fs.existsSync(path.join(extractPath, nestedDir, 'index.html'))) {
-          relativePath = `/previews/${previewToken}/${nestedDir}/index.html`;
-        }
-      }
-
-      const db = getDatabase();
-      await db.ref(`projects/${projectId}`).update({
-        stage: 3,
-        previewToken: previewToken,
-        previewExpiresAt: expiresAt,
-        previewUrl: relativePath
-      });
-
-      await db.ref(`projects/${projectId}/messages`).push({
-        sender: 'Gard Studios Admin',
-        text: 'Welcome to Stage 3! Your live preview is ready.',
-        timestamp: Date.now()
-      });
-
-      res.json({
-        success: true,
-        stage: 3,
-        previewUrl: relativePath,
-        expiresAt: expiresAt
-      });
-    } catch (extractErr) {
-      console.error('Extraction Error:', extractErr);
-      res.status(500).json({ error: 'Failed to extract ZIP archive: ' + extractErr.message });
-    }
-  });
-});
-
-// 4. ADMIN ROUTE: Delete Project & Cleanup Files
-app.delete('/api/admin/delete-project/:projectId', async (req, res) => {
-  const { projectId } = req.params;
-
-  try {
-    const db = getDatabase();
-    
-    const snapshot = await db.ref(`projects/${projectId}`).once('value');
-    if (snapshot.exists()) {
-      const data = snapshot.val();
-      if (data.previewToken) {
-        const previewFolderPath = path.join(__dirname, 'public', 'previews', data.previewToken);
-        if (fs.existsSync(previewFolderPath)) {
-          fs.rmSync(previewFolderPath, { recursive: true, force: true });
-        }
-      }
-    }
-
-    await db.ref(`projects/${projectId}`).remove();
-    res.json({ success: true, message: 'Project deleted successfully.' });
+    res.json({ url: session.url });
   } catch (err) {
-    console.error('Delete Project Error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// 5. FINANCIALS ROUTE: Generate & Download Sales Excel Ledger (.xlsx)
-app.get('/api/admin/export-sales', async (req, res) => {
+app.post('/api/create-final-checkout-session', async (req, res) => {
   try {
-    const db = getDatabase();
-    const snapshot = await db.ref('projects').once('value');
+    const { userId, amount, projectType } = req.body;
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: { name: `Final Balance Settlement: ${projectType || 'Gard Studios Project'}` },
+          unit_amount: Math.round((amount || 337.50) * 100),
+        },
+        quantity: 1,
+      }],
+      mode: 'payment',
+      success_url: `${req.protocol}://${req.get('host')}/?final_payment=success`,
+      cancel_url: `${req.protocol}://${req.get('host')}/?final_payment=cancel`,
+      client_reference_id: userId
+    });
+    res.json({ url: session.url });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
+// 6. Admin Project Management & Excel Export APIs
+app.post('/api/admin/deploy-preview/:uid', requireAdmin, async (req, res) => {
+  try {
+    const uid = req.params.uid;
+    if (!req.files || !req.files.projectZip) {
+      return res.status(400).json({ success: false, error: 'No .ZIP build uploaded.' });
+    }
+
+    const zipFile = req.files.projectZip;
+    const targetDir = path.join(__dirname, 'public', 'previews', uid);
+
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    const zip = new admZip(zipFile.data);
+    zip.extractAllTo(targetDir, true);
+
+    const previewUrl = `/previews/${uid}/index.html`;
+    await db.ref(`projects/${uid}`).update({ previewUrl, stage: 3 });
+
+    res.json({ success: true, previewUrl });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/admin/delete-project/:uid', requireAdmin, async (req, res) => {
+  try {
+    const uid = req.params.uid;
+    await db.ref(`projects/${uid}`).remove();
+    await db.ref(`users/${uid}`).remove();
+
+    const previewFolder = path.join(__dirname, 'public', 'previews', uid);
+    if (fs.existsSync(previewFolder)) {
+      fs.rmSync(previewFolder, { recursive: true, force: true });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/admin/export-sales', requireAdmin, async (req, res) => {
+  try {
+    const snapshot = await db.ref('projects').once('value');
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Gard Studios Sales Ledger');
 
     worksheet.columns = [
-      { header: 'Client Email', key: 'email', width: 30 },
-      { header: 'Project Category', key: 'projectType', width: 25 },
+      { header: 'Client UID', key: 'uid', width: 30 },
+      { header: 'Client Name', key: 'name', width: 25 },
+      { header: 'Company', key: 'company', width: 25 },
+      { header: 'Project Category', key: 'type', width: 25 },
+      { header: 'Deposit Amount ($)', key: 'deposit', width: 20 },
       { header: 'Approval Status', key: 'status', width: 15 },
-      { header: 'Deposit Price ($)', key: 'deposit', width: 18 },
-      { header: 'Total Value ($)', key: 'total', width: 18 },
-      { header: 'Final Paid Status', key: 'finalPaid', width: 18 },
-      { header: 'Signee Legal Name', key: 'signee', width: 25 },
-      { header: 'Completion Date', key: 'date', width: 22 }
+      { header: 'Current Stage', key: 'stage', width: 15 },
+      { header: 'Final Settlement', key: 'finalPaid', width: 20 }
     ];
 
     if (snapshot.exists()) {
       const projects = snapshot.val();
-      Object.keys(projects).forEach(uid => {
-        const proj = projects[uid];
-        const deposit = proj.depositAmount || 0;
-        const total = deposit * 2;
-
+      for (const uid of Object.keys(projects)) {
+        const p = projects[uid];
         worksheet.addRow({
-          email: proj.email || uid,
-          projectType: proj.projectType || 'Custom Project',
-          status: proj.approvalStatus || 'pending',
-          deposit: deposit.toFixed(2),
-          total: total.toFixed(2),
-          finalPaid: (proj.finalPaid || deposit === 0) ? 'PAID IN FULL' : 'PENDING BALANCE',
-          signee: proj.signedAgreement ? proj.signedAgreement.fullName : 'N/A',
-          date: proj.completedAt ? new Date(proj.completedAt).toLocaleDateString() : (proj.stage === 4 ? 'Completed' : 'In Progress')
+          uid: uid,
+          name: p.clientName || 'N/A',
+          company: p.clientCompany || 'N/A',
+          type: p.projectType || 'Standard',
+          deposit: p.depositAmount || 0,
+          status: p.approvalStatus || 'None',
+          stage: p.stage || 1,
+          finalPaid: p.finalPaid ? 'Paid in Full' : 'Pending Balance'
         });
-      });
+      }
     }
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=Gard_Studios_Tax_Sales_Ledger.xlsx');
+    res.setHeader('Content-Disposition', 'attachment; filename="Gard_Studios_Sales_Ledger.xlsx"');
 
     await workbook.xlsx.write(res);
     res.end();
   } catch (err) {
-    console.error('Excel Export Error:', err);
-    res.status(500).json({ error: 'Failed to generate Excel ledger: ' + err.message });
+    res.status(500).send('Failed to generate sales ledger export.');
   }
 });
 
-// Start Server
+// 7. Single Server Listen Execution
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Gard Studios Server running at http://localhost:${PORT}`);
+  console.log(`Gard Studios Server active on port ${PORT}`);
 });

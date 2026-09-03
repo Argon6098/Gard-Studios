@@ -65,6 +65,18 @@
 </head>
 <body>
 
+  <!-- ADMIN AUTHENTICATION LOCK OVERLAY -->
+  <div id="adminAuthModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f172a; display: flex; justify-content: center; align-items: center; z-index: 9999;">
+    <div style="background: #1e293b; padding: 2rem; border-radius: 8px; width: 360px; border: 1px solid #334155; text-align: center;">
+      <h2 style="color: #f59e0b; margin-bottom: 1rem; font-size: 1.3rem;">Gard Studios Admin Lock</h2>
+      <p style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 1rem;">Enter authorized credentials to enter dashboard:</p>
+      <input type="text" id="adminUser" placeholder="Admin Username" style="width: 100%; padding: 10px; margin-bottom: 10px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 4px;">
+      <input type="password" id="adminPass" placeholder="Admin Password" style="width: 100%; padding: 10px; margin-bottom: 10px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 4px;">
+      <div id="adminLoginError" style="color: #f87171; font-size: 0.85rem; margin-bottom: 10px; display: none;"></div>
+      <button id="adminLoginBtn" style="width: 100%; padding: 10px; background: #16a34a; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Authenticate & Unlock</button>
+    </div>
+  </div>
+
   <header>
     <h1>Gard Studios Admin</h1>
     <span style="font-size: 0.85rem; color: #94a3b8;">Control Engine</span>
@@ -119,7 +131,7 @@
       </div>
     </div>
 
-    <!-- PAGE 2: ACTIVE APPROVED PROJECTS (STAGES 1-3) -->
+    <!-- PAGE 2: ACTIVE APPROVED PROJECTS -->
     <div id="pageApproved" class="page-view">
       <div class="card">
         <h2>Active Approved Projects Tracker</h2>
@@ -167,7 +179,7 @@
       </div>
     </div>
 
-    <!-- PAGE 3: COMPLETED ARCHIVES (STAGE 4) -->
+    <!-- PAGE 3: COMPLETED ARCHIVES -->
     <div id="pageCompleted" class="page-view">
       <div class="card">
         <h2>Completed Orders Archive</h2>
@@ -198,12 +210,11 @@
       </div>
     </div>
 
-    <!-- PAGE 4: SALES & FINANCIALS -->
+    <!-- PAGE 4: FINANCIALS -->
     <div id="pageFinancials" class="page-view">
       <div class="card">
         <h2>Sales & Financial Reports</h2>
-        <p style="margin-bottom: 1rem; color: #cbd5e1; font-size: 0.9rem;">Export all completed sales and client project data directly into a structured Excel spreadsheet for tax filing and revenue reporting:</p>
-        
+        <p style="margin-bottom: 1rem; color: #cbd5e1; font-size: 0.9rem;">Export all completed sales and client project data directly into a structured Excel spreadsheet for revenue reporting:</p>
         <button class="btn-submit" id="downloadExcelBtn" style="background: #16a34a; font-size: 1rem;">📊 Download Gard Studios Sales Ledger (.XLSX)</button>
       </div>
     </div>
@@ -259,6 +270,33 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+
+    // ADMIN LOGIN AUTHENTICATION HANDLER
+    document.getElementById('adminLoginBtn').onclick = async () => {
+      const username = document.getElementById('adminUser').value.trim();
+      const password = document.getElementById('adminPass').value;
+      const errBox = document.getElementById('adminLoginError');
+
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          document.getElementById('adminAuthModal').style.display = 'none';
+          logMessage('Admin authentication successful.', 'success');
+        } else {
+          errBox.innerText = data.error || 'Access Denied';
+          errBox.style.display = 'block';
+        }
+      } catch (err) {
+        errBox.innerText = 'Server authentication error.';
+        errBox.style.display = 'block';
+      }
+    };
 
     const pages = {
       home: document.getElementById('pageHome'),
@@ -326,7 +364,6 @@
       return { name: proj.email || uid, company: 'N/A' };
     }
 
-    // CENTRAL DELETE RECORD HELPER
     async function deleteClientRecord(uid, pageContainerId, selectElementId) {
       if (!uid) return;
       if (!confirm("Are you sure you want to permanently delete this client record?")) return;
@@ -400,7 +437,7 @@
       }
     });
 
-    // PAGE 1: HOME INTAKE
+    // HOME INTAKE HANDLERS
     document.getElementById('clientSelectHome').onchange = async (e) => {
       activeHomeUid = e.target.value;
       const reviewSec = document.getElementById('reviewSectionHome');
@@ -434,7 +471,7 @@
       if (depositPrice === 0) updateData.stage = 2;
 
       await update(ref(db, `projects/${activeHomeUid}`), updateData);
-      logMessage(`Approved client ${activeHomeUid} at $${depositPrice.toFixed(2)}. Transferred to Active Approved tracker.`, 'success');
+      logMessage(`Approved client ${activeHomeUid} at $${depositPrice.toFixed(2)}.`, 'success');
       
       document.getElementById('reviewSectionHome').style.display = 'none';
       document.getElementById('clientSelectHome').value = '';
@@ -455,7 +492,7 @@
         denyReason: reason
       });
 
-      logMessage(`Denied request for ${activeHomeUid}. Reasoning saved.`, 'error');
+      logMessage(`Denied request for ${activeHomeUid}.`, 'error');
       document.getElementById('reviewSectionHome').style.display = 'none';
       document.getElementById('denyReasonBoxHome').style.display = 'none';
       document.getElementById('clientSelectHome').value = '';
@@ -466,7 +503,7 @@
       deleteClientRecord(activeHomeUid, 'reviewSectionHome', 'clientSelectHome');
     };
 
-    // PAGE 2: ACTIVE APPROVED
+    // ACTIVE APPROVED HANDLERS
     document.getElementById('clientSelectApproved').onchange = async (e) => {
       activeApprovedUid = e.target.value;
       const appDetails = document.getElementById('approvedDetails');
@@ -553,9 +590,9 @@
       .then(res => res.json())
       .then(data => {
         if (data.success) {
-          logMessage(`Preview deployed for approved client: ${data.previewUrl}`, 'success');
+          logMessage(`Preview deployed: ${data.previewUrl}`, 'success');
         } else {
-          logMessage(`Preview upload error: ${data.error}`, 'error');
+          logMessage(`Upload error: ${data.error}`, 'error');
         }
       });
     };
@@ -575,7 +612,7 @@
           timestamp: Date.now()
         });
 
-        logMessage(`Advanced Client UID ${activeApprovedUid} to Stage 4. Transferred to Archives.`, 'success');
+        logMessage(`Advanced Client UID ${activeApprovedUid} to Stage 4.`, 'success');
         document.getElementById('approvedDetails').style.display = 'none';
         document.getElementById('clientSelectApproved').value = '';
         activeApprovedUid = null;
@@ -588,7 +625,7 @@
       deleteClientRecord(activeApprovedUid, 'approvedDetails', 'clientSelectApproved');
     };
 
-    // PAGE 3: COMPLETED ARCHIVES
+    // ARCHIVES HANDLERS
     document.getElementById('clientSelectCompleted').onchange = async (e) => {
       activeCompletedUid = e.target.value;
       const compDetails = document.getElementById('completedDetails');
@@ -634,7 +671,7 @@
       window.location.href = '/api/admin/export-sales';
     };
 
-    // PAGE 4: DENIED
+    // DENIED HANDLERS
     document.getElementById('clientSelectDenied').onchange = async (e) => {
       activeDeniedUid = e.target.value;
       const denDetails = document.getElementById('deniedDetails');
