@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gard Studios | Execute Custom Contract</title>
   <link rel="icon" type="image/png" href="/favicon.png">
+
+  <!-- PDF.js Library for PDF Rendering -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+
   <style>
     :root {
       --bg: #0f172a;
@@ -53,7 +57,8 @@
       border-radius: 6px;
       border: 1px solid var(--border);
     }
-    .preview-box img {
+    
+    #pdfCanvas, #contractPreviewImg {
       max-width: 100%;
       max-height: 450px;
       border-radius: 4px;
@@ -64,7 +69,7 @@
     .sig-block { margin-top: 1.5rem; }
     .sig-label { display: block; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.95rem; }
     
-    canvas {
+    canvas.sig-pad {
       background: #ffffff;
       border-radius: 4px;
       width: 100%;
@@ -104,19 +109,20 @@
 
   <div class="contract-card">
     <h1>Gard Studios | Execute Contract</h1>
-    <p class="subtext">Upload Pablo's custom agreement document and sign below to execute the contract.</p>
+    <p class="subtext">Upload Pablo's custom agreement (PDF, PNG, JPG) and sign below to execute the contract.</p>
 
     <!-- DRAG AND DROP ZONE -->
     <div id="dropZone" class="drop-zone">
       <p style="font-weight: bold; font-size: 1.05rem;">📁 Drag & Drop Custom Contract File Here</p>
-      <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 0.25rem;">(Supports PNG, JPG, or SVG contract documents)</p>
-      <input type="file" id="contractFileInput" accept="image/*" hidden>
+      <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 0.25rem;">(Supports PDF, PNG, JPG, or SVG documents)</p>
+      <input type="file" id="contractFileInput" accept="image/*,.pdf" hidden>
     </div>
 
-    <!-- DOCUMENT PREVIEW -->
+    <!-- DOCUMENT PREVIEW CONTAINER -->
     <div id="previewContainer" class="preview-box">
       <p style="color: #4ade80; font-weight: bold; font-size: 0.9rem; margin-bottom: 0.5rem;">✅ Document Loaded Successfully</p>
-      <img id="contractPreviewImg" src="" alt="Loaded Contract Document">
+      <img id="contractPreviewImg" src="" alt="Loaded Contract Document" style="display: none;">
+      <canvas id="pdfCanvas" style="display: none;"></canvas>
     </div>
 
     <!-- DUAL SIGNATURE CONTAINER -->
@@ -126,14 +132,14 @@
       <!-- 1. DEVELOPER SIGNATURE -->
       <div class="sig-block">
         <label class="sig-label" style="color: var(--dev-color);">1. Developer Signature (Gard Studios):</label>
-        <canvas id="devSigCanvas"></canvas>
+        <canvas id="devSigCanvas" class="sig-pad"></canvas>
         <button type="button" class="btn-clear" id="clearDevSigBtn">Clear Developer Signature</button>
       </div>
 
       <!-- 2. CLIENT SIGNATURE -->
       <div class="sig-block">
         <label class="sig-label" style="color: var(--highlight);">2. Client Signature (Pablo):</label>
-        <canvas id="clientSigCanvas"></canvas>
+        <canvas id="clientSigCanvas" class="sig-pad"></canvas>
         <button type="button" class="btn-clear" id="clearClientSigBtn">Clear Client Signature</button>
       </div>
 
@@ -143,11 +149,15 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, update, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    // Configure PDF.js Worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
     const firebaseConfig = {
       apiKey: "AIzaSyC0hfMzDbYcyM3U28R3mfEdSAqkcd5uGJ4",
       authDomain: "gard-studios.firebaseapp.com",
+      databaseURL: "https://gard-studios-default-rtdb.firebaseio.com",
       projectId: "gard-studios",
       storageBucket: "gard-studios.firebasestorage.app",
       messagingSenderId: "889677906284",
@@ -161,11 +171,11 @@
     const fileInput = document.getElementById('contractFileInput');
     const previewContainer = document.getElementById('previewContainer');
     const previewImg = document.getElementById('contractPreviewImg');
+    const pdfCanvas = document.getElementById('pdfCanvas');
     const sigSection = document.getElementById('signatureSection');
 
     let loadedDocumentBase64 = null;
 
-    // Drag and drop event listeners
     dropZone.onclick = () => fileInput.click();
     dropZone.ondragover = (e) => { e.preventDefault(); dropZone.style.borderColor = '#4ade80'; };
     dropZone.ondragleave = () => { dropZone.style.borderColor = '#3b82f6'; };
@@ -179,27 +189,63 @@
     };
 
     function handleFileSelect(file) {
-      if (!file.type.startsWith('image/')) {
-        alert('Please upload an image format (PNG, JPG, SVG) of the agreement.');
-        return;
+      if (file.type === 'application/pdf') {
+        renderPdf(file);
+      } else if (file.type.startsWith('image/')) {
+        renderImage(file);
+      } else {
+        alert('Unsupported file format. Please upload a PDF or Image file.');
       }
+    }
+
+    // Render Image Uploads
+    function renderImage(file) {
       const reader = new FileReader();
       reader.onload = (e) => {
         loadedDocumentBase64 = e.target.result;
         previewImg.src = loadedDocumentBase64;
+        previewImg.style.display = 'inline-block';
+        pdfCanvas.style.display = 'none';
         previewContainer.style.display = 'block';
         sigSection.style.display = 'block';
       };
       reader.readAsDataURL(file);
     }
 
-    // Canvas drawing helper function
+    // Render PDF Uploads via PDF.js Canvas
+    function renderPdf(file) {
+      const fileReader = new FileReader();
+      fileReader.onload = function () {
+        const typedarray = new Uint8Array(this.result);
+
+        pdfjsLib.getDocument(typedarray).promise.then((pdf) => {
+          // Render Page 1
+          pdf.getPage(1).then((page) => {
+            const viewport = page.getViewport({ scale: 1.5 });
+            const ctx = pdfCanvas.getContext('2d');
+            pdfCanvas.height = viewport.height;
+            pdfCanvas.width = viewport.width;
+
+            const renderContext = { canvasContext: ctx, viewport: viewport };
+            page.render(renderContext).promise.then(() => {
+              loadedDocumentBase64 = pdfCanvas.toDataURL('image/png');
+              previewImg.style.display = 'none';
+              pdfCanvas.style.display = 'inline-block';
+              previewContainer.style.display = 'block';
+              sigSection.style.display = 'block';
+            });
+          });
+        });
+      };
+      fileReader.readAsArrayBuffer(file);
+    }
+
+    // Signature Canvas Setup Function
     function setupCanvas(canvasId, clearBtnId) {
       const canvas = document.getElementById(canvasId);
       const ctx = canvas.getContext('2d');
       let isDrawing = false;
 
-      // Adjust internal canvas pixel density
       canvas.width = canvas.offsetWidth;
       canvas.height = canvas.offsetHeight;
 
@@ -247,17 +293,15 @@
     const devCanvas = setupCanvas('devSigCanvas', 'clearDevSigBtn');
     const clientCanvas = setupCanvas('clientSigCanvas', 'clearClientSigBtn');
 
-    // Submit and store executed contract into Firebase
+    // Submit Executed Contract to Database
     document.getElementById('submitContractBtn').onclick = async () => {
       if (!loadedDocumentBase64) {
-        alert('Please drag and drop a contract file first.');
+        alert('Please upload a contract file first.');
         return;
       }
 
       const devSigData = devCanvas.toDataURL();
       const clientSigData = clientCanvas.toDataURL();
-
-      // Locate Pablo's project record or assign target UID
       const targetUid = 'pablo_anime_project';
 
       try {
@@ -276,7 +320,7 @@
         });
 
         alert('Agreement successfully executed and saved to Gard Studios database!');
-        window.location.href = '/admin';
+        window.location.href = '/admin.html';
       } catch (err) {
         alert('Error saving signed agreement: ' + err.message);
       }
