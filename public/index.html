@@ -105,7 +105,7 @@
     .order-card { background: #f1f5f9; border: 1px solid var(--border); border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
 
     .terms-box { height: 120px; overflow-y: auto; background: #ffffff; border: 1px solid var(--border); padding: 10px; border-radius: 4px; font-size: 0.8rem; color: #475569; margin-top: 0.5rem; }
-    .sig-canvas-pad { border: 2px dashed #94a3b8; background: #ffffff; border-radius: 4px; cursor: crosshair; touch-action: none; display: block; margin-top: 0.5rem; width: 100%; height: 120px; }
+    .sig-canvas-pad { border: 2px dashed #94a3b8; background: #ffffff; border-radius: 4px; cursor: crosshair; touch-action: none; display: block; margin-top: 0.5rem; width: 100%; height: 130px; }
 
     .client-log-box {
       background: #0f172a;
@@ -412,7 +412,6 @@
       }
     }
 
-    // SUBMIT PROJECT ORDER HANDLER
     const submitBtn = document.getElementById('submitScopeBtn');
     if (submitBtn) {
       submitBtn.onclick = async () => {
@@ -439,7 +438,6 @@
         if (projectType === 'Anime & Storyline Web Portal') amount = 0.00;
 
         try {
-          // Changed update to set to ensure direct root creation under user UID
           await set(ref(db, 'projects/' + activeUserId), {
             clientName: userProfile.name || 'Client',
             clientCompany: userProfile.company || 'N/A',
@@ -586,48 +584,54 @@
       }
     };
 
+    // HIGH-ACCURACY TOUCH & MOUSE SIGNATURE ENGINE
     function initSigCanvas() {
       const canvas = document.getElementById('sigCanvas');
       if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      let drawing = false;
 
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
+      const ctx = canvas.getContext('2d');
+      let isDrawing = false;
+
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width || 300;
+      canvas.height = rect.height || 130;
+
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = '#0f172a';
 
       const getPos = (e) => {
-        const rect = canvas.getBoundingClientRect();
+        const r = canvas.getBoundingClientRect();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        return { x: clientX - rect.left, y: clientY - rect.top };
+        return { x: clientX - r.left, y: clientY - r.top };
       };
 
-      const start = (e) => {
-        drawing = true;
+      const startDrawing = (e) => {
+        isDrawing = true;
         ctx.beginPath();
         const pos = getPos(e);
         ctx.moveTo(pos.x, pos.y);
       };
 
-      const move = (e) => {
-        if (!drawing) return;
-        e.preventDefault();
+      const draw = (e) => {
+        if (!isDrawing) return;
+        if (e.cancelable) e.preventDefault();
         const pos = getPos(e);
-        ctx.lineWidth = 2;
-        ctx.lineCap = 'round';
-        ctx.strokeStyle = '#0f172a';
         ctx.lineTo(pos.x, pos.y);
         ctx.stroke();
       };
 
-      const stop = () => { drawing = false; };
+      const stopDrawing = () => { isDrawing = false; };
 
-      canvas.addEventListener('mousedown', start);
-      canvas.addEventListener('mousemove', move);
-      canvas.addEventListener('mouseup', stop);
-      canvas.addEventListener('touchstart', start);
-      canvas.addEventListener('touchmove', move);
-      canvas.addEventListener('touchend', stop);
+      canvas.onmousedown = startDrawing;
+      canvas.onmousemove = draw;
+      canvas.onmouseup = stopDrawing;
+      canvas.onmouseleave = stopDrawing;
+
+      canvas.addEventListener('touchstart', startDrawing, { passive: false });
+      canvas.addEventListener('touchmove', draw, { passive: false });
+      canvas.addEventListener('touchend', stopDrawing, { passive: false });
 
       const clearBtn = document.getElementById('clearSigBtn');
       if (clearBtn) {

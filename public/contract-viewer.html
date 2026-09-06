@@ -6,7 +6,7 @@
   <title>Gard Studios | Execute Custom Contract</title>
   <link rel="icon" type="image/png" href="/favicon.png">
 
-  <!-- PDF.js Library for PDF Rendering -->
+  <!-- PDF.js Engine -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 
   <style>
@@ -151,7 +151,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // Configure PDF.js Worker
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
     const firebaseConfig = {
@@ -198,7 +197,6 @@
       }
     }
 
-    // Render Image Uploads
     function renderImage(file) {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -212,14 +210,12 @@
       reader.readAsDataURL(file);
     }
 
-    // Render PDF Uploads via PDF.js Canvas
     function renderPdf(file) {
       const fileReader = new FileReader();
       fileReader.onload = function () {
         const typedarray = new Uint8Array(this.result);
 
         pdfjsLib.getDocument(typedarray).promise.then((pdf) => {
-          // Render Page 1
           pdf.getPage(1).then((page) => {
             const viewport = page.getViewport({ scale: 1.5 });
             const ctx = pdfCanvas.getContext('2d');
@@ -240,20 +236,25 @@
       fileReader.readAsArrayBuffer(file);
     }
 
-    // Signature Canvas Setup Function
+    // HIGH-ACCURACY DUAL CANVAS SETUP WITH NON-PASSIVE TOUCH SUPPORT
     function setupCanvas(canvasId, clearBtnId) {
       const canvas = document.getElementById(canvasId);
       const ctx = canvas.getContext('2d');
       let isDrawing = false;
 
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width || 500;
+      canvas.height = rect.height || 130;
+
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = '#0f172a';
 
       const getCoords = (e) => {
-        const rect = canvas.getBoundingClientRect();
+        const r = canvas.getBoundingClientRect();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        return { x: clientX - rect.left, y: clientY - rect.top };
+        return { x: clientX - r.left, y: clientY - r.top };
       };
 
       const start = (e) => {
@@ -265,23 +266,22 @@
 
       const draw = (e) => {
         if (!isDrawing) return;
-        e.preventDefault();
+        if (e.cancelable) e.preventDefault();
         const { x, y } = getCoords(e);
-        ctx.lineWidth = 2.5;
-        ctx.lineCap = 'round';
-        ctx.strokeStyle = '#0f172a';
         ctx.lineTo(x, y);
         ctx.stroke();
       };
 
       const stop = () => { isDrawing = false; };
 
-      canvas.addEventListener('mousedown', start);
-      canvas.addEventListener('mousemove', draw);
-      canvas.addEventListener('mouseup', stop);
-      canvas.addEventListener('touchstart', start);
-      canvas.addEventListener('touchmove', draw);
-      canvas.addEventListener('touchend', stop);
+      canvas.onmousedown = start;
+      canvas.onmousemove = draw;
+      canvas.onmouseup = stop;
+      canvas.onmouseleave = stop;
+
+      canvas.addEventListener('touchstart', start, { passive: false });
+      canvas.addEventListener('touchmove', draw, { passive: false });
+      canvas.addEventListener('touchend', stop, { passive: false });
 
       document.getElementById(clearBtnId).onclick = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -293,7 +293,6 @@
     const devCanvas = setupCanvas('devSigCanvas', 'clearDevSigBtn');
     const clientCanvas = setupCanvas('clientSigCanvas', 'clearClientSigBtn');
 
-    // Submit Executed Contract to Database
     document.getElementById('submitContractBtn').onclick = async () => {
       if (!loadedDocumentBase64) {
         alert('Please upload a contract file first.');
