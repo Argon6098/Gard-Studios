@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gard Studios | Admin Portal</title>
-<link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="icon" type="image/png" href="/favicon.png">
   <style>
     :root {
       --primary: #1e3a8a;
@@ -16,6 +16,7 @@
       --accent: #16a34a;
       --warning: #dc2626;
       --highlight: #f59e0b;
+      --dev-color: #38bdf8;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -152,9 +153,29 @@
 
           <div id="legalSignatureBox" style="background: #0f172a; border: 1px solid var(--border); padding: 10px; border-radius: 4px; margin-top: 1rem;">
             <p><strong>📜 Legal Agreement Status:</strong> <span id="sigStatusLabel" style="color: #f87171;">Pending Signature</span></p>
+            
+            <!-- Standard Single Signature View -->
             <div id="sigImageContainer" style="display: none; margin-top: 0.5rem;">
               <p style="font-size: 0.8rem; color: #94a3b8;">Signed by: <strong id="sigNameLabel" style="color: #f8fafc;">-</strong></p>
               <img id="sigImg" src="" style="background: white; border-radius: 4px; padding: 4px; margin-top: 4px; max-height: 80px;">
+            </div>
+
+            <!-- Custom Dual-Signature & Document Review View -->
+            <div id="dualContractReviewBox" style="display: none; margin-top: 0.75rem; border-top: 1px solid var(--border); padding-top: 0.75rem;">
+              <div id="adminDocContainer" style="margin-bottom: 0.75rem; text-align: center;">
+                <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 4px;">Uploaded Agreement Document:</p>
+                <img id="adminContractDocImg" src="" style="max-width: 100%; max-height: 250px; border: 1px solid var(--border); border-radius: 4px; object-fit: contain;">
+              </div>
+              <div style="display: flex; gap: 1rem; justify-content: space-around; flex-wrap: wrap;">
+                <div style="text-align: center;">
+                  <p style="font-size: 0.8rem; color: var(--dev-color); font-weight: bold;">Developer Signature:</p>
+                  <img id="adminDevSigImg" src="" style="background: white; padding: 4px; border-radius: 4px; max-height: 60px; margin-top: 4px;">
+                </div>
+                <div style="text-align: center;">
+                  <p style="font-size: 0.8rem; color: var(--highlight); font-weight: bold;">Client Signature:</p>
+                  <img id="adminClientSigImg" src="" style="background: white; padding: 4px; border-radius: 4px; max-height: 60px; margin-top: 4px;">
+                </div>
+              </div>
             </div>
           </div>
 
@@ -201,8 +222,27 @@
           <div style="background: #020617; border: 1px solid var(--border); padding: 10px; border-radius: 4px; margin-top: 1rem;">
             <p style="color: var(--highlight);"><strong>📜 Signed Legal Contract Details:</strong></p>
             <p style="font-size: 0.85rem; margin-top: 4px;">Signee Name: <span id="compSigName" style="color: #cbd5e1;">-</span></p>
+            
             <div id="compSigImgContainer" style="display: none; margin-top: 0.5rem;">
               <img id="compSigImg" src="" style="background: white; border-radius: 4px; padding: 4px; max-height: 80px;">
+            </div>
+
+            <!-- Archived Dual-Signature Review -->
+            <div id="compDualContractReviewBox" style="display: none; margin-top: 0.75rem; border-top: 1px solid var(--border); padding-top: 0.75rem;">
+              <div style="margin-bottom: 0.75rem; text-align: center;">
+                <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 4px;">Executed Agreement Document:</p>
+                <img id="compContractDocImg" src="" style="max-width: 100%; max-height: 250px; border: 1px solid var(--border); border-radius: 4px; object-fit: contain;">
+              </div>
+              <div style="display: flex; gap: 1rem; justify-content: space-around; flex-wrap: wrap;">
+                <div style="text-align: center;">
+                  <p style="font-size: 0.8rem; color: var(--dev-color); font-weight: bold;">Developer Signature:</p>
+                  <img id="compDevSigImg" src="" style="background: white; padding: 4px; border-radius: 4px; max-height: 60px; margin-top: 4px;">
+                </div>
+                <div style="text-align: center;">
+                  <p style="font-size: 0.8rem; color: var(--highlight); font-weight: bold;">Client Signature:</p>
+                  <img id="compClientSigImg" src="" style="background: white; padding: 4px; border-radius: 4px; max-height: 60px; margin-top: 4px;">
+                </div>
+              </div>
             </div>
           </div>
 
@@ -535,17 +575,32 @@
         const sigContainer = document.getElementById('sigImageContainer');
         const sigName = document.getElementById('sigNameLabel');
         const sigImg = document.getElementById('sigImg');
+        const dualReviewBox = document.getElementById('dualContractReviewBox');
+
+        // Reset visibility
+        sigContainer.style.display = 'none';
+        dualReviewBox.style.display = 'none';
 
         if (proj.signedAgreement) {
-          sigStatus.innerText = '✅ Signed & Verified';
+          sigStatus.innerText = '✅ Signed & Fully Executed';
           sigStatus.style.color = '#4ade80';
-          sigName.innerText = proj.signedAgreement.fullName;
-          sigImg.src = proj.signedAgreement.signatureData;
-          sigContainer.style.display = 'block';
+
+          // Render Custom Dual Contract if uploaded
+          if (proj.customContractDoc || proj.signedAgreement.devSignature) {
+            document.getElementById('adminContractDocImg').src = proj.customContractDoc || '';
+            document.getElementById('adminDevSigImg').src = proj.signedAgreement.devSignature || '';
+            document.getElementById('adminClientSigImg').src = proj.signedAgreement.clientSignature || '';
+            dualReviewBox.style.display = 'block';
+          } 
+          // Fallback to standard single signature preview
+          else if (proj.signedAgreement.signatureData) {
+            sigName.innerText = proj.signedAgreement.fullName || userMeta.name;
+            sigImg.src = proj.signedAgreement.signatureData;
+            sigContainer.style.display = 'block';
+          }
         } else {
-          sigStatus.innerText = '⏳ Pending Signature';
+          sigStatus.innerText = '⏳ Pending Signature Execution';
           sigStatus.style.color = '#f87171';
-          sigContainer.style.display = 'none';
         }
       }
 
@@ -651,14 +706,26 @@
         const compSigContainer = document.getElementById('compSigImgContainer');
         const compSigImg = document.getElementById('compSigImg');
         const compSigName = document.getElementById('compSigName');
+        const compDualReviewBox = document.getElementById('compDualContractReviewBox');
+
+        // Reset visibility
+        compSigContainer.style.display = 'none';
+        compDualReviewBox.style.display = 'none';
 
         if (proj.signedAgreement) {
-          compSigName.innerText = proj.signedAgreement.fullName;
-          compSigImg.src = proj.signedAgreement.signatureData;
-          compSigContainer.style.display = 'block';
+          compSigName.innerText = proj.signedAgreement.fullName || userMeta.name;
+
+          if (proj.customContractDoc || proj.signedAgreement.devSignature) {
+            document.getElementById('compContractDocImg').src = proj.customContractDoc || '';
+            document.getElementById('compDevSigImg').src = proj.signedAgreement.devSignature || '';
+            document.getElementById('compClientSigImg').src = proj.signedAgreement.clientSignature || '';
+            compDualReviewBox.style.display = 'block';
+          } else if (proj.signedAgreement.signatureData) {
+            compSigImg.src = proj.signedAgreement.signatureData;
+            compSigContainer.style.display = 'block';
+          }
         } else {
           compSigName.innerText = 'No digital signature recorded';
-          compSigContainer.style.display = 'none';
         }
       }
     };

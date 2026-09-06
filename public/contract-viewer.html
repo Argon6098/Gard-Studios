@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gard Studios | Execute Custom Contract</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --accent: #16a34a;
+      --warning: #ef4444;
+      --highlight: #f59e0b;
+      --dev-color: #38bdf8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 2rem 1rem; }
+
+    .contract-card {
+      max-width: 700px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    }
+
+    h1 { color: var(--highlight); font-size: 1.4rem; margin-bottom: 0.5rem; }
+    p.subtext { color: #94a3b8; font-size: 0.9rem; margin-bottom: 1.5rem; }
+
+    .drop-zone {
+      border: 2px dashed #3b82f6;
+      background: #0f172a;
+      padding: 2.5rem 1rem;
+      text-align: center;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .drop-zone:hover { background: #1e293b; border-color: var(--highlight); }
+
+    .preview-box {
+      display: none;
+      margin-top: 1.5rem;
+      text-align: center;
+      background: #0f172a;
+      padding: 1rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+    .preview-box img {
+      max-width: 100%;
+      max-height: 450px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      object-fit: contain;
+    }
+
+    .sig-block { margin-top: 1.5rem; }
+    .sig-label { display: block; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.95rem; }
+    
+    canvas {
+      background: #ffffff;
+      border-radius: 4px;
+      width: 100%;
+      height: 130px;
+      cursor: crosshair;
+      touch-action: none;
+    }
+
+    .btn-clear {
+      background: var(--warning);
+      color: white;
+      border: none;
+      padding: 5px 12px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      margin-top: 6px;
+      cursor: pointer;
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 14px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 2rem;
+      transition: opacity 0.2s;
+    }
+    .btn-submit:hover { opacity: 0.9; }
+  </style>
+</head>
+<body>
+
+  <div class="contract-card">
+    <h1>Gard Studios | Execute Contract</h1>
+    <p class="subtext">Upload Pablo's custom agreement document and sign below to execute the contract.</p>
+
+    <!-- DRAG AND DROP ZONE -->
+    <div id="dropZone" class="drop-zone">
+      <p style="font-weight: bold; font-size: 1.05rem;">📁 Drag & Drop Custom Contract File Here</p>
+      <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 0.25rem;">(Supports PNG, JPG, or SVG contract documents)</p>
+      <input type="file" id="contractFileInput" accept="image/*" hidden>
+    </div>
+
+    <!-- DOCUMENT PREVIEW -->
+    <div id="previewContainer" class="preview-box">
+      <p style="color: #4ade80; font-weight: bold; font-size: 0.9rem; margin-bottom: 0.5rem;">✅ Document Loaded Successfully</p>
+      <img id="contractPreviewImg" src="" alt="Loaded Contract Document">
+    </div>
+
+    <!-- DUAL SIGNATURE CONTAINER -->
+    <div id="signatureSection" style="display: none;">
+      <hr style="border: 0; border-top: 1px solid var(--border); margin: 1.5rem 0;">
+
+      <!-- 1. DEVELOPER SIGNATURE -->
+      <div class="sig-block">
+        <label class="sig-label" style="color: var(--dev-color);">1. Developer Signature (Gard Studios):</label>
+        <canvas id="devSigCanvas"></canvas>
+        <button type="button" class="btn-clear" id="clearDevSigBtn">Clear Developer Signature</button>
+      </div>
+
+      <!-- 2. CLIENT SIGNATURE -->
+      <div class="sig-block">
+        <label class="sig-label" style="color: var(--highlight);">2. Client Signature (Pablo):</label>
+        <canvas id="clientSigCanvas"></canvas>
+        <button type="button" class="btn-clear" id="clearClientSigBtn">Clear Client Signature</button>
+      </div>
+
+      <button type="button" class="btn-submit" id="submitContractBtn">Execute & Save Final Agreement</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, update, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyC0hfMzDbYcyM3U28R3mfEdSAqkcd5uGJ4",
+      authDomain: "gard-studios.firebaseapp.com",
+      projectId: "gard-studios",
+      storageBucket: "gard-studios.firebasestorage.app",
+      messagingSenderId: "889677906284",
+      appId: "1:889677906284:web:42cb30892c5d682ba37349"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('contractFileInput');
+    const previewContainer = document.getElementById('previewContainer');
+    const previewImg = document.getElementById('contractPreviewImg');
+    const sigSection = document.getElementById('signatureSection');
+
+    let loadedDocumentBase64 = null;
+
+    // Drag and drop event listeners
+    dropZone.onclick = () => fileInput.click();
+    dropZone.ondragover = (e) => { e.preventDefault(); dropZone.style.borderColor = '#4ade80'; };
+    dropZone.ondragleave = () => { dropZone.style.borderColor = '#3b82f6'; };
+    dropZone.ondrop = (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = '#3b82f6';
+      if (e.dataTransfer.files.length) handleFileSelect(e.dataTransfer.files[0]);
+    };
+    fileInput.onchange = (e) => {
+      if (e.target.files.length) handleFileSelect(e.target.files[0]);
+    };
+
+    function handleFileSelect(file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Please upload an image format (PNG, JPG, SVG) of the agreement.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        loadedDocumentBase64 = e.target.result;
+        previewImg.src = loadedDocumentBase64;
+        previewContainer.style.display = 'block';
+        sigSection.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Canvas drawing helper function
+    function setupCanvas(canvasId, clearBtnId) {
+      const canvas = document.getElementById(canvasId);
+      const ctx = canvas.getContext('2d');
+      let isDrawing = false;
+
+      // Adjust internal canvas pixel density
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+
+      const getCoords = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return { x: clientX - rect.left, y: clientY - rect.top };
+      };
+
+      const start = (e) => {
+        isDrawing = true;
+        ctx.beginPath();
+        const { x, y } = getCoords(e);
+        ctx.moveTo(x, y);
+      };
+
+      const draw = (e) => {
+        if (!isDrawing) return;
+        e.preventDefault();
+        const { x, y } = getCoords(e);
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      };
+
+      const stop = () => { isDrawing = false; };
+
+      canvas.addEventListener('mousedown', start);
+      canvas.addEventListener('mousemove', draw);
+      canvas.addEventListener('mouseup', stop);
+      canvas.addEventListener('touchstart', start);
+      canvas.addEventListener('touchmove', draw);
+      canvas.addEventListener('touchend', stop);
+
+      document.getElementById(clearBtnId).onclick = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      };
+
+      return canvas;
+    }
+
+    const devCanvas = setupCanvas('devSigCanvas', 'clearDevSigBtn');
+    const clientCanvas = setupCanvas('clientSigCanvas', 'clearClientSigBtn');
+
+    // Submit and store executed contract into Firebase
+    document.getElementById('submitContractBtn').onclick = async () => {
+      if (!loadedDocumentBase64) {
+        alert('Please drag and drop a contract file first.');
+        return;
+      }
+
+      const devSigData = devCanvas.toDataURL();
+      const clientSigData = clientCanvas.toDataURL();
+
+      // Locate Pablo's project record or assign target UID
+      const targetUid = 'pablo_anime_project';
+
+      try {
+        await update(ref(db, `projects/${targetUid}`), {
+          clientName: 'Pablo',
+          projectType: 'Anime & Storyline Web Portal',
+          waivedFee: true,
+          depositAmount: 0,
+          customContractDoc: loadedDocumentBase64,
+          signedAgreement: {
+            devSignature: devSigData,
+            clientSignature: clientSigData,
+            executedAt: Date.now(),
+            status: 'Fully Executed'
+          }
+        });
+
+        alert('Agreement successfully executed and saved to Gard Studios database!');
+        window.location.href = '/admin';
+      } catch (err) {
+        alert('Error saving signed agreement: ' + err.message);
+      }
+    };
+  </script>
+</body>
+</html>
