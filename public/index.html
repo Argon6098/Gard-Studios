@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gard Studios | Client Portal</title>
-<link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="icon" type="image/png" href="/favicon.png">
   <style>
     :root {
       --primary: #1e3a8a;
@@ -161,6 +161,7 @@
           <option value="Custom Business Website">Custom Business Website ($675 total - $337.50 deposit)</option>
           <option value="Mobile Application">Mobile Application ($1,200 total - $600.00 deposit)</option>
           <option value="Casual 2D Game Build">Casual 2D Game Build ($900 total - $450.00 deposit)</option>
+          <option value="Anime & Storyline Web Portal">Anime & Storyline Web Portal (Custom Quote)</option>
         </select>
 
         <label for="projectScope">Detail Your Project Requirements:</label>
@@ -232,7 +233,6 @@
         <button class="btn-submit" id="submitEmailLogin">Log In</button>
       </div>
 
-      <!-- ENHANCED REGISTRATION WITH NAME & COMPANY -->
       <div id="formRegister" style="display: none; text-align: left;">
         <label for="regName">Full Name <span style="color: var(--warning);">*</span>:</label>
         <input type="text" id="regName" placeholder="John Doe">
@@ -364,7 +364,6 @@
       activeUserId = uid;
       activeUserEmail = email || 'Client Account';
 
-      // Load Profile Data
       try {
         const snap = await get(ref(db, `users/${uid}`));
         if (snap.exists()) {
@@ -412,40 +411,59 @@
       }
     }
 
-    document.getElementById('submitScopeBtn').onclick = async () => {
-      if (!activeUserId) return;
-      const projectType = document.getElementById('projectType').value;
-      const scope = document.getElementById('projectScope').value.trim();
+    // SUBMIT PROJECT ORDER HANDLER
+    const submitBtn = document.getElementById('submitScopeBtn');
+    if (submitBtn) {
+      submitBtn.onclick = async () => {
+        if (!activeUserId) {
+          alert('Please log in before submitting an order.');
+          return;
+        }
 
-      if (!scope) {
-        logMessage('Submission error: Please enter your project requirements.', 'error');
-        return;
-      }
+        const projectType = document.getElementById('projectType').value;
+        const scope = document.getElementById('projectScope').value.trim();
 
-      let amount = 337.50;
-      if (projectType === 'Mobile Application') amount = 600.00;
-      if (projectType === 'Casual 2D Game Build') amount = 450.00;
+        if (!scope) {
+          alert('Please enter your project requirements before submitting.');
+          logMessage('Submission error: Please enter your project requirements.', 'error');
+          return;
+        }
 
-      try {
-        await update(ref(db, 'projects/' + activeUserId), {
-          clientName: userProfile.name || 'N/A',
-          clientCompany: userProfile.company || 'N/A',
-          email: activeUserEmail,
-          projectType: projectType,
-          scope: scope,
-          depositAmount: amount,
-          approvalStatus: 'pending',
-          stage: 1,
-          finalPaid: false,
-          signedAgreement: null
-        });
-        logMessage('Project order submitted! Transferred to orders tracker.', 'success');
-        document.getElementById('projectScope').value = '';
-        switchPage('myOrders');
-      } catch (err) {
-        logMessage(`Failed to submit project scope: ${err.message}`, 'error');
-      }
-    };
+        submitBtn.disabled = true;
+        submitBtn.innerText = "Submitting Order...";
+
+        let amount = 337.50;
+        if (projectType === 'Mobile Application') amount = 600.00;
+        if (projectType === 'Casual 2D Game Build') amount = 450.00;
+        if (projectType === 'Anime & Storyline Web Portal') amount = 0.00;
+
+        try {
+          await update(ref(db, 'projects/' + activeUserId), {
+            clientName: userProfile.name || 'Client',
+            clientCompany: userProfile.company || 'N/A',
+            email: activeUserEmail,
+            projectType: projectType,
+            scope: scope,
+            depositAmount: amount,
+            approvalStatus: 'pending',
+            stage: 1,
+            finalPaid: false,
+            signedAgreement: null
+          });
+
+          logMessage('Project order submitted! Transferred to orders tracker.', 'success');
+          alert("🎉 Project submitted for review! You can track progress under 'My Orders'.");
+          document.getElementById('projectScope').value = '';
+          switchPage('myOrders');
+        } catch (err) {
+          logMessage(`Failed to submit project scope: ${err.message}`, 'error');
+          alert('Error submitting project: ' + err.message);
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.innerText = "📝 Submit Request for Review";
+        }
+      };
+    }
 
     document.getElementById('logoutDropdownItem').onclick = async () => {
       try {
@@ -467,7 +485,6 @@
       }
     };
 
-    // REGISTER ACCOUNT WITH FULL NAME AND COMPANY
     document.getElementById('submitRegister').onclick = async () => {
       clearMessages();
       const name = document.getElementById('regName').value.trim();
@@ -572,13 +589,49 @@
       const ctx = canvas.getContext('2d');
       let drawing = false;
 
-      canvas.onmousedown = (e) => { drawing = true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); };
-      canvas.onmousemove = (e) => { if (drawing) { ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke(); } };
-      canvas.onmouseup = () => drawing = false;
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
 
-      document.getElementById('clearSigBtn').onclick = () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const getPos = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return { x: clientX - rect.left, y: clientY - rect.top };
       };
+
+      const start = (e) => {
+        drawing = true;
+        ctx.beginPath();
+        const pos = getPos(e);
+        ctx.moveTo(pos.x, pos.y);
+      };
+
+      const move = (e) => {
+        if (!drawing) return;
+        e.preventDefault();
+        const pos = getPos(e);
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+      };
+
+      const stop = () => { drawing = false; };
+
+      canvas.addEventListener('mousedown', start);
+      canvas.addEventListener('mousemove', move);
+      canvas.addEventListener('mouseup', stop);
+      canvas.addEventListener('touchstart', start);
+      canvas.addEventListener('touchmove', move);
+      canvas.addEventListener('touchend', stop);
+
+      const clearBtn = document.getElementById('clearSigBtn');
+      if (clearBtn) {
+        clearBtn.onclick = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        };
+      }
     }
 
     function listenToProjectState(uid) {
@@ -603,7 +656,7 @@
           if (data.signedAgreement) {
             contractHtml = `
               <div style="background: #ffffff; border: 1px solid var(--border); padding: 8px; border-radius: 4px; margin-top: 0.75rem;">
-                <p style="font-size: 0.8rem; color: #475569;"><strong>📜 Signed Contract:</strong> Verified under ${data.signedAgreement.fullName}</p>
+                <p style="font-size: 0.8rem; color: #475569;"><strong>📜 Signed Contract:</strong> Verified under ${data.signedAgreement.fullName || 'Client'}</p>
               </div>
             `;
           }
@@ -651,7 +704,7 @@
               <input type="text" id="sigNameInput" placeholder="Type your full legal name" value="${userProfile.name || ''}">
 
               <label>Draw Digital Signature Below:</label>
-              <canvas id="sigCanvas" width="300" height="120" class="sig-canvas-pad"></canvas>
+              <canvas id="sigCanvas" class="sig-canvas-pad"></canvas>
               <button id="clearSigBtn" style="background: none; border: none; color: #dc2626; font-size: 0.8rem; cursor: pointer; text-decoration: underline;">Clear Canvas</button>
 
               <button class="btn-submit" id="submitSigBtn" style="background: #16a34a; margin-top: 0.75rem;">✍️ Sign Agreement & Unlock Payment</button>
@@ -682,7 +735,7 @@
         } else if (data.stage === 4 && !data.finalPaid) {
           stageContent = `
             <span class="status-badge" style="background: #e0e7ff; color: #3730a3;">Stage 4: Final Handover</span>
-            <p>🎉 Project complete! Pay remaining 50% balance to unlock source package.</p>
+            <p>🎉 Project complete! Pay remaining balance to unlock source package.</p>
             <p style="margin-top: 0.25rem;">Remaining Balance: <strong>$${(data.depositAmount || 337.50).toFixed(2)}</strong></p>
             <button class="btn-submit" id="payFinalBalanceBtn" style="background: #2563eb;">💳 Pay Final Balance with Stripe</button>
           `;
@@ -701,10 +754,11 @@
           submitSigBtn.onclick = async () => {
             const name = document.getElementById('sigNameInput').value.trim();
             const canvas = document.getElementById('sigCanvas');
-            const sigDataUrl = canvas.toDataURL();
+            const sigDataUrl = canvas ? canvas.toDataURL() : '';
 
             if (!name) {
               logMessage('Please enter your full legal name before signing.', 'error');
+              alert('Please enter your full legal name.');
               return;
             }
 
