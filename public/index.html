@@ -266,6 +266,7 @@
     const firebaseConfig = {
       apiKey: "AIzaSyC0hfMzDbYcyM3U28R3mfEdSAqkcd5uGJ4",
       authDomain: "gard-studios.firebaseapp.com",
+      databaseURL: "https://gard-studios-default-rtdb.firebaseio.com",
       projectId: "gard-studios",
       storageBucket: "gard-studios.firebasestorage.app",
       messagingSenderId: "889677906284",
@@ -438,7 +439,8 @@
         if (projectType === 'Anime & Storyline Web Portal') amount = 0.00;
 
         try {
-          await update(ref(db, 'projects/' + activeUserId), {
+          // Changed update to set to ensure direct root creation under user UID
+          await set(ref(db, 'projects/' + activeUserId), {
             clientName: userProfile.name || 'Client',
             clientCompany: userProfile.company || 'N/A',
             email: activeUserEmail,
@@ -448,7 +450,8 @@
             approvalStatus: 'pending',
             stage: 1,
             finalPaid: false,
-            signedAgreement: null
+            signedAgreement: null,
+            createdAt: Date.now()
           });
 
           logMessage('Project order submitted! Transferred to orders tracker.', 'success');

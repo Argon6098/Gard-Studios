@@ -154,13 +154,11 @@
           <div id="legalSignatureBox" style="background: #0f172a; border: 1px solid var(--border); padding: 10px; border-radius: 4px; margin-top: 1rem;">
             <p><strong>📜 Legal Agreement Status:</strong> <span id="sigStatusLabel" style="color: #f87171;">Pending Signature</span></p>
             
-            <!-- Standard Single Signature View -->
             <div id="sigImageContainer" style="display: none; margin-top: 0.5rem;">
               <p style="font-size: 0.8rem; color: #94a3b8;">Signed by: <strong id="sigNameLabel" style="color: #f8fafc;">-</strong></p>
               <img id="sigImg" src="" style="background: white; border-radius: 4px; padding: 4px; margin-top: 4px; max-height: 80px;">
             </div>
 
-            <!-- Custom Dual-Signature & Document Review View -->
             <div id="dualContractReviewBox" style="display: none; margin-top: 0.75rem; border-top: 1px solid var(--border); padding-top: 0.75rem;">
               <div id="adminDocContainer" style="margin-bottom: 0.75rem; text-align: center;">
                 <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 4px;">Uploaded Agreement Document:</p>
@@ -227,7 +225,6 @@
               <img id="compSigImg" src="" style="background: white; border-radius: 4px; padding: 4px; max-height: 80px;">
             </div>
 
-            <!-- Archived Dual-Signature Review -->
             <div id="compDualContractReviewBox" style="display: none; margin-top: 0.75rem; border-top: 1px solid var(--border); padding-top: 0.75rem;">
               <div style="margin-bottom: 0.75rem; text-align: center;">
                 <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 4px;">Executed Agreement Document:</p>
@@ -302,6 +299,7 @@
     const firebaseConfig = {
       apiKey: "AIzaSyC0hfMzDbYcyM3U28R3mfEdSAqkcd5uGJ4",
       authDomain: "gard-studios.firebaseapp.com",
+      databaseURL: "https://gard-studios-default-rtdb.firebaseio.com",
       projectId: "gard-studios",
       storageBucket: "gard-studios.firebasestorage.app",
       messagingSenderId: "889677906284",
@@ -577,7 +575,6 @@
         const sigImg = document.getElementById('sigImg');
         const dualReviewBox = document.getElementById('dualContractReviewBox');
 
-        // Reset visibility
         sigContainer.style.display = 'none';
         dualReviewBox.style.display = 'none';
 
@@ -585,15 +582,12 @@
           sigStatus.innerText = '✅ Signed & Fully Executed';
           sigStatus.style.color = '#4ade80';
 
-          // Render Custom Dual Contract if uploaded
           if (proj.customContractDoc || proj.signedAgreement.devSignature) {
             document.getElementById('adminContractDocImg').src = proj.customContractDoc || '';
             document.getElementById('adminDevSigImg').src = proj.signedAgreement.devSignature || '';
             document.getElementById('adminClientSigImg').src = proj.signedAgreement.clientSignature || '';
             dualReviewBox.style.display = 'block';
-          } 
-          // Fallback to standard single signature preview
-          else if (proj.signedAgreement.signatureData) {
+          } else if (proj.signedAgreement.signatureData) {
             sigName.innerText = proj.signedAgreement.fullName || userMeta.name;
             sigImg.src = proj.signedAgreement.signatureData;
             sigContainer.style.display = 'block';
@@ -708,7 +702,6 @@
         const compSigName = document.getElementById('compSigName');
         const compDualReviewBox = document.getElementById('compDualContractReviewBox');
 
-        // Reset visibility
         compSigContainer.style.display = 'none';
         compDualReviewBox.style.display = 'none';
 
