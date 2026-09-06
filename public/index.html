@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gard Studios | Client Portal</title>
   <link rel="icon" type="image/png" href="/favicon.png">
+
+  <!-- PDF.js Engine for PDF Rendering -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+
   <style>
     :root {
       --primary: #1e3a8a;
@@ -16,6 +20,7 @@
       --accent: #16a34a;
       --warning: #dc2626;
       --highlight: #f59e0b;
+      --dev-color: #0284c7;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -104,7 +109,9 @@
 
     .order-card { background: #f1f5f9; border: 1px solid var(--border); border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
 
-    .terms-box { height: 120px; overflow-y: auto; background: #ffffff; border: 1px solid var(--border); padding: 10px; border-radius: 4px; font-size: 0.8rem; color: #475569; margin-top: 0.5rem; }
+    .drop-zone { border: 2px dashed var(--secondary); background: #ffffff; padding: 20px; text-align: center; border-radius: 6px; cursor: pointer; margin-top: 0.75rem; font-size: 0.9rem; }
+    .drop-zone:hover { border-color: var(--accent); background: #f8fafc; }
+
     .sig-canvas-pad { border: 2px dashed #94a3b8; background: #ffffff; border-radius: 4px; cursor: crosshair; touch-action: none; display: block; margin-top: 0.5rem; width: 100%; height: 130px; }
 
     .client-log-box {
@@ -161,7 +168,7 @@
           <option value="Custom Business Website">Custom Business Website ($675 total - $337.50 deposit)</option>
           <option value="Mobile Application">Mobile Application ($1,200 total - $600.00 deposit)</option>
           <option value="Casual 2D Game Build">Casual 2D Game Build ($900 total - $450.00 deposit)</option>
-          <option value="Anime & Storyline Web Portal">Anime & Storyline Web Portal (Custom Quote)</option>
+          <option value="Anime & Storyline Web Portal">Anime & Storyline Web Portal (Custom Quote / Waived)</option>
         </select>
 
         <label for="projectScope">Detail Your Project Requirements:</label>
@@ -263,6 +270,8 @@
     import { getAuth, setPersistence, browserLocalPersistence, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { getDatabase, ref, set, get, child, onValue, push, update, off } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
     const firebaseConfig = {
       apiKey: "AIzaSyC0hfMzDbYcyM3U28R3mfEdSAqkcd5uGJ4",
       authDomain: "gard-studios.firebaseapp.com",
@@ -311,6 +320,7 @@
     let activeUserEmail = null;
     let userProfile = { name: '', company: '' };
     let activeProjectListener = null;
+    let loadedDocumentBase64 = null;
 
     function logMessage(text, type = 'info') {
       const logBox = document.getElementById('clientLogBox');
@@ -435,7 +445,7 @@
         let amount = 337.50;
         if (projectType === 'Mobile Application') amount = 600.00;
         if (projectType === 'Casual 2D Game Build') amount = 450.00;
-        if (projectType === 'Anime & Storyline Web Portal') amount = 0.00;
+        if (projectType.includes('Anime')) amount = 0.00;
 
         try {
           await set(ref(db, 'projects/' + activeUserId), {
@@ -584,11 +594,9 @@
       }
     };
 
-    // HIGH-ACCURACY TOUCH & MOUSE SIGNATURE ENGINE
-    function initSigCanvas() {
-      const canvas = document.getElementById('sigCanvas');
-      if (!canvas) return;
-
+    function setupCanvas(canvasId, clearBtnId) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return null;
       const ctx = canvas.getContext('2d');
       let isDrawing = false;
 
@@ -600,44 +608,102 @@
       ctx.lineCap = 'round';
       ctx.strokeStyle = '#0f172a';
 
-      const getPos = (e) => {
+      const getCoords = (e) => {
         const r = canvas.getBoundingClientRect();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
         return { x: clientX - r.left, y: clientY - r.top };
       };
 
-      const startDrawing = (e) => {
+      const start = (e) => {
         isDrawing = true;
         ctx.beginPath();
-        const pos = getPos(e);
-        ctx.moveTo(pos.x, pos.y);
+        const { x, y } = getCoords(e);
+        ctx.moveTo(x, y);
       };
 
       const draw = (e) => {
         if (!isDrawing) return;
         if (e.cancelable) e.preventDefault();
-        const pos = getPos(e);
-        ctx.lineTo(pos.x, pos.y);
+        const { x, y } = getCoords(e);
+        ctx.lineTo(x, y);
         ctx.stroke();
       };
 
-      const stopDrawing = () => { isDrawing = false; };
+      const stop = () => { isDrawing = false; };
 
-      canvas.onmousedown = startDrawing;
+      canvas.onmousedown = start;
       canvas.onmousemove = draw;
-      canvas.onmouseup = stopDrawing;
-      canvas.onmouseleave = stopDrawing;
+      canvas.onmouseup = stop;
+      canvas.onmouseleave = stop;
 
-      canvas.addEventListener('touchstart', startDrawing, { passive: false });
+      canvas.addEventListener('touchstart', start, { passive: false });
       canvas.addEventListener('touchmove', draw, { passive: false });
-      canvas.addEventListener('touchend', stopDrawing, { passive: false });
+      canvas.addEventListener('touchend', stop, { passive: false });
 
-      const clearBtn = document.getElementById('clearSigBtn');
+      const clearBtn = document.getElementById(clearBtnId);
       if (clearBtn) {
         clearBtn.onclick = () => {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
         };
+      }
+      return canvas;
+    }
+
+    function setupDragAndDrop() {
+      const dropZone = document.getElementById('dropZone');
+      const fileInput = document.getElementById('contractFileInput');
+      const previewImg = document.getElementById('contractPreviewImg');
+      const pdfCanvas = document.getElementById('pdfCanvas');
+      const previewContainer = document.getElementById('previewContainer');
+
+      if (!dropZone || !fileInput) return;
+
+      dropZone.onclick = () => fileInput.click();
+      dropZone.ondragover = (e) => { e.preventDefault(); dropZone.style.borderColor = '#16a34a'; };
+      dropZone.ondragleave = () => { dropZone.style.borderColor = '#2563eb'; };
+      dropZone.ondrop = (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#2563eb';
+        if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+      };
+      fileInput.onchange = (e) => {
+        if (e.target.files.length) handleFile(e.target.files[0]);
+      };
+
+      function handleFile(file) {
+        if (file.type === 'application/pdf') {
+          const reader = new FileReader();
+          reader.onload = function () {
+            const typedarray = new Uint8Array(this.result);
+            pdfjsLib.getDocument(typedarray).promise.then((pdf) => {
+              pdf.getPage(1).then((page) => {
+                const viewport = page.getViewport({ scale: 1.5 });
+                const ctx = pdfCanvas.getContext('2d');
+                pdfCanvas.height = viewport.height;
+                pdfCanvas.width = viewport.width;
+
+                page.render({ canvasContext: ctx, viewport: viewport }).promise.then(() => {
+                  loadedDocumentBase64 = pdfCanvas.toDataURL('image/png');
+                  previewImg.style.display = 'none';
+                  pdfCanvas.style.display = 'inline-block';
+                  previewContainer.style.display = 'block';
+                });
+              });
+            });
+          };
+          reader.readAsArrayBuffer(file);
+        } else if (file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            loadedDocumentBase64 = e.target.result;
+            previewImg.src = loadedDocumentBase64;
+            previewImg.style.display = 'inline-block';
+            pdfCanvas.style.display = 'none';
+            previewContainer.style.display = 'block';
+          };
+          reader.readAsDataURL(file);
+        }
       }
     }
 
@@ -663,7 +729,7 @@
           if (data.signedAgreement) {
             contractHtml = `
               <div style="background: #ffffff; border: 1px solid var(--border); padding: 8px; border-radius: 4px; margin-top: 0.75rem;">
-                <p style="font-size: 0.8rem; color: #475569;"><strong>📜 Signed Contract:</strong> Verified under ${data.signedAgreement.fullName || 'Client'}</p>
+                <p style="font-size: 0.8rem; color: #475569;"><strong>📜 Signed Contract:</strong> Executed & Verified under ${data.signedAgreement.fullName || data.clientName || 'Client'}</p>
               </div>
             `;
           }
@@ -696,31 +762,42 @@
           
           if (!data.signedAgreement) {
             stageContent = `
-              <span class="status-badge" style="background: #e0f2fe; color: #0369a1;">Stage 1: Legal Agreement Required</span>
-              <p style="font-size: 0.85rem; color: #475569;">Please review and sign the Gard Studios Master Services Agreement to proceed to deposit payment:</p>
+              <span class="status-badge" style="background: #e0f2fe; color: #0369a1;">Stage 1: Execute Contract & Sign Agreement</span>
+              <p style="font-size: 0.85rem; color: #475569; margin-bottom: 0.75rem;">Upload custom contract document or review agreement, then draw signatures below to proceed:</p>
               
-              <div class="terms-box">
-                <strong>Gard Studios Master Services Agreement (MSA)</strong><br>
-                1. <strong>Scope of Work:</strong> Gard Studios agrees to design and develop the requested digital project in accordance with submitted requirements.<br>
-                2. <strong>Payment Schedule:</strong> A non-refundable 50% deposit is required to commence Stage 2 build creation. The remaining 50% balance is due prior to final handover.<br>
-                3. <strong>Intellectual Property:</strong> All source files and assets transfer to the client upon full payment settlement.<br>
-                4. <strong>Revisions:</strong> Live previews are hosted in Stage 3 for iteration feedback.
+              <!-- DRAG AND DROP CUSTOM CONTRACT ZONE -->
+              <div id="dropZone" class="drop-zone">
+                <p style="font-weight: bold;">📁 Drag & Drop Custom Agreement File Here (Optional)</p>
+                <p style="color: #64748b; font-size: 0.8rem;">(Supports PDF, PNG, JPG)</p>
+                <input type="file" id="contractFileInput" accept="image/*,.pdf" hidden>
               </div>
 
-              <label style="margin-top: 0.5rem;">Legal Full Name:</label>
-              <input type="text" id="sigNameInput" placeholder="Type your full legal name" value="${userProfile.name || ''}">
+              <div id="previewContainer" style="display: none; margin-top: 0.75rem; text-align: center;">
+                <p style="color: #16a34a; font-weight: bold; font-size: 0.85rem;">✅ Custom Document Attached</p>
+                <img id="contractPreviewImg" src="" style="max-width: 100%; max-height: 250px; border: 1px solid var(--border); border-radius: 4px; display: none;">
+                <canvas id="pdfCanvas" style="max-width: 100%; max-height: 250px; border: 1px solid var(--border); border-radius: 4px; display: none;"></canvas>
+              </div>
 
-              <label>Draw Digital Signature Below:</label>
-              <canvas id="sigCanvas" class="sig-canvas-pad"></canvas>
-              <button id="clearSigBtn" style="background: none; border: none; color: #dc2626; font-size: 0.8rem; cursor: pointer; text-decoration: underline;">Clear Canvas</button>
+              <!-- DUAL SIGNATURE PADS -->
+              <div style="margin-top: 1rem;">
+                <label style="color: var(--dev-color);">1. Developer Signature (Gard Studios):</label>
+                <canvas id="devSigCanvas" class="sig-canvas-pad"></canvas>
+                <button id="clearDevSigBtn" style="background: none; border: none; color: #dc2626; font-size: 0.8rem; cursor: pointer; text-decoration: underline;">Clear Developer Signature</button>
 
-              <button class="btn-submit" id="submitSigBtn" style="background: #16a34a; margin-top: 0.75rem;">✍️ Sign Agreement & Unlock Payment</button>
+                <label style="color: var(--highlight); margin-top: 0.75rem;">2. Client Signature (Pablo / Client):</label>
+                <canvas id="clientSigCanvas" class="sig-canvas-pad"></canvas>
+                <button id="clearClientSigBtn" style="background: none; border: none; color: #dc2626; font-size: 0.8rem; cursor: pointer; text-decoration: underline;">Clear Client Signature</button>
+              </div>
+
+              <button class="btn-submit" id="submitSigBtn" style="background: #16a34a; margin-top: 1.25rem;">✍️ Execute Agreement & Transition to Stage 2</button>
             `;
           } else {
             stageContent = `
-              <span class="status-badge" style="background: #dcfce7; color: #15803d;">Stage 1: Agreement Signed - Deposit Unlocked</span>
-              <p>Deposit Amount: <strong>$${(data.depositAmount || 337.50).toFixed(2)}</strong></p>
-              <button class="btn-submit" id="payDepositBtn" style="background: #2563eb;">💳 Pay Deposit with Stripe</button>
+              <span class="status-badge" style="background: #dcfce7; color: #15803d;">Stage 1: Agreement Executed</span>
+              <p>Approved Fee: <strong>$${(data.depositAmount || 0).toFixed(2)}</strong> ${data.depositAmount === 0 ? '(Fee Waived)' : ''}</p>
+              ${data.depositAmount > 0 
+                ? `<button class="btn-submit" id="payDepositBtn" style="background: #2563eb;">💳 Pay Deposit with Stripe</button>` 
+                : `<p style="color: #16a34a; font-weight: bold; margin-top: 0.5rem;">🎉 Fee waived! Proceeding directly to build creation.</p>`}
             `;
           }
 
@@ -743,7 +820,7 @@
           stageContent = `
             <span class="status-badge" style="background: #e0e7ff; color: #3730a3;">Stage 4: Final Handover</span>
             <p>🎉 Project complete! Pay remaining balance to unlock source package.</p>
-            <p style="margin-top: 0.25rem;">Remaining Balance: <strong>$${(data.depositAmount || 337.50).toFixed(2)}</strong></p>
+            <p style="margin-top: 0.25rem;">Remaining Balance: <strong>$${(data.depositAmount || 0).toFixed(2)}</strong></p>
             <button class="btn-submit" id="payFinalBalanceBtn" style="background: #2563eb;">💳 Pay Final Balance with Stripe</button>
           `;
         }
@@ -754,32 +831,40 @@
           ${stageContent}
         `;
 
-        initSigCanvas();
+        // Mount Canvas and Drag/Drop Handlers
+        const devCanvas = setupCanvas('devSigCanvas', 'clearDevSigBtn');
+        const clientCanvas = setupCanvas('clientSigCanvas', 'clearClientSigBtn');
+        setupDragAndDrop();
 
         const submitSigBtn = document.getElementById('submitSigBtn');
         if (submitSigBtn) {
           submitSigBtn.onclick = async () => {
-            const name = document.getElementById('sigNameInput').value.trim();
-            const canvas = document.getElementById('sigCanvas');
-            const sigDataUrl = canvas ? canvas.toDataURL() : '';
-
-            if (!name) {
-              logMessage('Please enter your full legal name before signing.', 'error');
-              alert('Please enter your full legal name.');
-              return;
-            }
+            const devSigData = devCanvas ? devCanvas.toDataURL() : '';
+            const clientSigData = clientCanvas ? clientCanvas.toDataURL() : '';
 
             try {
-              await update(ref(db, `projects/${uid}`), {
+              const payload = {
+                customContractDoc: loadedDocumentBase64 || null,
                 signedAgreement: {
-                  fullName: name,
-                  signatureData: sigDataUrl,
-                  timestamp: Date.now()
+                  fullName: userProfile.name || 'Client',
+                  devSignature: devSigData,
+                  clientSignature: clientSigData,
+                  executedAt: Date.now(),
+                  status: 'Fully Executed'
                 }
-              });
-              logMessage('Master Services Agreement signed successfully! Payment unlocked.', 'success');
+              };
+
+              // If deposit is $0 (fee waived), automatically advance to Stage 2 upon signature!
+              if (data.depositAmount === 0) {
+                payload.stage = 2;
+              }
+
+              await update(ref(db, `projects/${uid}`), payload);
+              logMessage('Agreement executed successfully! Saved to Gard Studios database.', 'success');
+              alert('🎉 Agreement signed and executed!');
             } catch (err) {
-              logMessage(`Failed to save signature: ${err.message}`, 'error');
+              logMessage(`Failed to save signatures: ${err.message}`, 'error');
+              alert('Error executing agreement: ' + err.message);
             }
           };
         }
@@ -823,7 +908,7 @@
         const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: activeUserId, amount: amount || 337.50, projectType: projectType })
+          body: JSON.stringify({ userId: activeUserId, amount: amount || 0, projectType: projectType })
         });
         const data = await res.json();
         if (data.url) window.location.href = data.url;

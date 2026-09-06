@@ -37,6 +37,17 @@
     h1 { color: var(--highlight); font-size: 1.4rem; margin-bottom: 0.5rem; }
     p.subtext { color: #94a3b8; font-size: 0.9rem; margin-bottom: 1.5rem; }
 
+    .session-badge {
+      background: #0284c7;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      margin-bottom: 1rem;
+      display: inline-block;
+    }
+
     .drop-zone {
       border: 2px dashed #3b82f6;
       background: #0f172a;
@@ -108,8 +119,10 @@
 <body>
 
   <div class="contract-card">
-    <h1>Gard Studios | Execute Contract</h1>
-    <p class="subtext">Upload Pablo's custom agreement (PDF, PNG, JPG) and sign below to execute the contract.</p>
+    <h1>Gard Studios | Execute Custom Contract</h1>
+    <p class="subtext">Upload custom agreement (PDF, PNG, JPG) and sign below to execute the contract.</p>
+
+    <div id="sessionBadge" class="session-badge">Checking active user session...</div>
 
     <!-- DRAG AND DROP ZONE -->
     <div id="dropZone" class="drop-zone">
@@ -138,7 +151,7 @@
 
       <!-- 2. CLIENT SIGNATURE -->
       <div class="sig-block">
-        <label class="sig-label" style="color: var(--highlight);">2. Client Signature (Pablo):</label>
+        <label class="sig-label" style="color: var(--highlight);">2. Client Signature (Pablo / Client):</label>
         <canvas id="clientSigCanvas" class="sig-pad"></canvas>
         <button type="button" class="btn-clear" id="clearClientSigBtn">Clear Client Signature</button>
       </div>
@@ -149,6 +162,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { getDatabase, ref, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
@@ -164,8 +178,10 @@
     };
 
     const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
     const db = getDatabase(app);
 
+    const sessionBadge = document.getElementById('sessionBadge');
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('contractFileInput');
     const previewContainer = document.getElementById('previewContainer');
@@ -173,7 +189,22 @@
     const pdfCanvas = document.getElementById('pdfCanvas');
     const sigSection = document.getElementById('signatureSection');
 
+    let activeUserUid = null;
+    let activeUserEmail = null;
     let loadedDocumentBase64 = null;
+
+    // Monitor Firebase Auth Session
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        activeUserUid = user.uid;
+        activeUserEmail = user.email;
+        sessionBadge.innerText = `👤 Session Active: ${user.email} (${user.uid})`;
+        sessionBadge.style.background = '#16a34a';
+      } else {
+        sessionBadge.innerText = '⚠️ No active session detected. Log in via index.html first.';
+        sessionBadge.style.background = '#dc2626';
+      }
+    });
 
     dropZone.onclick = () => fileInput.click();
     dropZone.ondragover = (e) => { e.preventDefault(); dropZone.style.borderColor = '#4ade80'; };
@@ -236,7 +267,6 @@
       fileReader.readAsArrayBuffer(file);
     }
 
-    // HIGH-ACCURACY DUAL CANVAS SETUP WITH NON-PASSIVE TOUCH SUPPORT
     function setupCanvas(canvasId, clearBtnId) {
       const canvas = document.getElementById(canvasId);
       const ctx = canvas.getContext('2d');
@@ -299,18 +329,21 @@
         return;
       }
 
+      if (!activeUserUid) {
+        alert('No active account session detected. Please log in on index.html first!');
+        return;
+      }
+
       const devSigData = devCanvas.toDataURL();
       const clientSigData = clientCanvas.toDataURL();
-      const targetUid = 'pablo_anime_project';
 
       try {
-        await update(ref(db, `projects/${targetUid}`), {
-          clientName: 'Pablo',
-          projectType: 'Anime & Storyline Web Portal',
-          waivedFee: true,
-          depositAmount: 0,
+        await update(ref(db, `projects/${activeUserUid}`), {
           customContractDoc: loadedDocumentBase64,
+          stage: 2,
+          approvalStatus: 'approved',
           signedAgreement: {
+            fullName: activeUserEmail,
             devSignature: devSigData,
             clientSignature: clientSigData,
             executedAt: Date.now(),
@@ -318,7 +351,7 @@
           }
         });
 
-        alert('Agreement successfully executed and saved to Gard Studios database!');
+        alert('🎉 Custom contract successfully executed and saved to your account!');
         window.location.href = '/admin.html';
       } catch (err) {
         alert('Error saving signed agreement: ' + err.message);
